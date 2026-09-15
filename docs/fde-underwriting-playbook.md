@@ -9,8 +9,8 @@
 > **Two-layer reminder.** This is the **ktayl-solution insurance IS** (the business/org context). It is
 > **not** the RNCP certification — that is **Retrieva**, a separate product. Nothing here concerns Retrieva.
 
-**Reference model:** ktayl is a **commercial-lines / large-risk IARD** insurer (reference: HDI Global SE
-France). Underwriting here means **technical underwriting of complex business risks** (Marine,
+**Reference model:** ktayl is a **commercial-lines / large-risk IARD** insurer. Underwriting here means
+**technical underwriting of complex business risks** (Marine,
 Engineering, Property, Financial Lines, International Programs) — *not* mass-market personal-lines
 auto/home, where the flow is far more automated. The complexity is the point: large risks are
 judgement-heavy, document-heavy, and referral-heavy, which is exactly where an FDE finds leverage.
