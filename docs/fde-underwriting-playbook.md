@@ -37,10 +37,14 @@ The FDE method, applied per pain point:
 ```
 business process → pain point → data / documents → existing systems
     → decision / task → automation opportunity → AI capability → measurable outcome
+    → REGULATORY IMPACT → CONTROLS REQUIRED → AUDIT EVIDENCE → MONITORING
 ```
 
 Every AI/automation idea in §7 is traced through this chain. If a step in the chain is missing (no
-data, no measurable outcome, no real decision), the idea is not ready — that is the discipline.
+data, no measurable outcome, no real decision), the idea is not ready — that is the discipline. **The
+regulatory tail (last line) is mandatory for a regulated insurer** — see §12; it's the insurance-FDE
+differentiator (a generic AI engineer stops at "measurable outcome"; here we carry it to controls +
+audit evidence).
 
 **Build-order discipline (decided 2026-09-14):** *business tools first; the AI/automation layer last.*
 The **AI Ops Copilot** is the **capstone** — it automates *over* systems, so it only pays off once the
@@ -266,6 +270,45 @@ the §7b copilot stays parked.
   DORA product is **Retrieva** (separate). Don't conflate.
 - **Explainability** — the premium breakdown (UW-04) and the cited guideline decision (UW-02) exist so a
   human (and an auditor) can see *why* — a prerequisite before any §7b copilot is allowed to act.
+
+---
+
+## 12. Regulatory impact → controls → evidence → monitoring (the FDE differentiator)
+
+> **This is the reference section every domain playbook copies.** ktayl is a regulated insurer
+> (Solvency II spine + transversal EU/FR frameworks). Regulation is **not a silo** — a single UW
+> capability triggers several frameworks at once, and the controls are declared **at design time**
+> (compliance-by-design), verified at the architecture + **security** governance gates
+> (`bmad-compliance.md` *The regulatory layer*). Insurer ≠ bank — CRR/CRD/PSD2 don't apply.
+
+**Frameworks the underwriting domain triggers (owner → what it demands here):**
+
+| Framework | Why it fires in underwriting | Controls-by-design |
+|---|---|---|
+| **Solvency II** (spine) | UW selects/prices risk → feeds exposure, technical provisions, SCR, ORSA | appetite/limit enforcement (UW-02), auditable rate tables (UW-04), aggregate feed (UW-05), decision audit trail |
+| **IDD / DDA** | quote/terms + product governance + advice boundary | product-governance checks, clear client info on the quote, complaints trail |
+| **EU AI Act** | any AI in §7 (submission extraction, guideline assist, the copilot) | **risk tiering** (see below) → oversight, logging (Langfuse), evaluation, incident mgmt |
+| **GDPR** | broker/insured/beneficial-owner PII in submissions | purpose limitation, minimisation, retention, Presidio PII masking, DPIA for high-tier AI |
+| **AML / Sanctions** | screening the counterparty/insured/beneficial owners at submission | sanctions + PPE screening gate before bind, TRACFIN-ready trail |
+| **DORA / Outsourcing** | the LLM provider + any SaaS in the flow = ICT third-party | provider in the ICT register (Retrieva), egress control, exit/BCP posture |
+
+**AI-Act risk tiering — mandatory per AI use case** (controls spike when AI influences a decision about a person):
+
+| §7 use case | Tier | Added controls |
+|---|---|---|
+| Submission extraction (human-verified) | limited | logging, human confirmation |
+| Guideline check assist (RAG) | limited | citations, GDPR on corpus |
+| Referral routing | limited | logging |
+| **AI Ops Copilot — proposes/acts on terms** (§7b, parked) | **high** | full: human oversight + contestability, DPIA, eval, monitoring, incident mgmt — *gated before any autonomous action* |
+
+**The chain, worked for one capability (submission extraction):** broker PDF → re-keying pain →
+PII-bearing docs → workbench → populate the file → LLM extraction → ↓ intake time → **REGULATORY: GDPR
+(PII) + AI Act (limited) + DORA (LLM provider)** → **CONTROLS: Presidio masking, human verification,
+provider in ICT register** → **EVIDENCE: extraction logs + human-sign-off in the audit trail** →
+**MONITORING: Langfuse traces + drift/accuracy watch**.
+
+**Evidence lands in the control library** (`Risk→Control→Owner→Evidence→Testing→Finding→Remediation→Audit`)
+owned by **Regulatory & Compliance #15**; the obligations register is its map. Cert evidence: **BC03**.
 
 ---
 
