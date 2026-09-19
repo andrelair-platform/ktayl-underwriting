@@ -120,7 +120,7 @@ multi-LOB · broker self-service portal · reinsurance cession automation.
 
 ## 9. Definition of Done (product-level)
 
-A submission for the chosen LOB can be taken **intake → appetite → rating → quote → bind** in the workbench,
+A submission for the v1 LOB (**Property**) can be taken **intake → appetite → rating → quote → bind** in the workbench,
 **binds a real policy in `ktayl-policy-service`**, records an immutable decision with a cited appetite result
 and an explainable premium, publishes a bound-risk event, and passes the **architecture + security** gates
 with all v1 AI at limited tier and PII masked before any LLM call.

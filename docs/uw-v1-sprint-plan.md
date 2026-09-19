@@ -7,8 +7,9 @@
 
 ## Slice goal
 
-One LOB (recommend **Property** or a **Financial Line**), one broker path, taken **submission → appetite
-→ rating → quote → bind → audit**, binding a real policy in `ktayl-policy-service`. Defers UW-03 & UW-05.
+**v1 LOB = Property** (chosen — richest COPE/exposure data to exercise the file + rating, and the best fit
+for the extraction assist), one broker path, taken **submission → appetite → rating → quote → bind →
+audit**, binding a real policy in `ktayl-policy-service`. Defers UW-03 & UW-05.
 
 ## Story breakdown
 
@@ -78,10 +79,11 @@ Docling/markitdown convert → **Presidio mask** → LiteLLM→vLLM extraction �
 | Scope disciplined (thin slice, deferrals explicit) | ✅ one LOB, UW-03/UW-05 deferred, copilot parked |
 | Dependencies are contracts, not blockers | ✅ PAS contract early; MDM local-first; NATS events |
 | Bind contract confirmed | ✅ **resolved** — map to the live thin PAS API as-is (ADR-006 Accepted: create→submit→activate, deterministic `policy_number` idempotency) |
-| **Open decision for the owner** | ⚠️ **(1)** pick the v1 LOB (Property vs a Financial Line) |
+| v1 LOB chosen | ✅ **Property** |
 
-**Verdict: CONCERNS → PASS on one remaining owner decision.** The bind contract is now settled (ADR-006
-Accepted). The plan is implementation-ready once you choose the **v1 LOB**. No code should start before that.
+**Verdict: PASS.** Both owner decisions are settled (v1 LOB = **Property**; bind contract = ADR-006 Accepted).
+The plan is **implementation-ready** — start with S001→S002→S003 (the file), then S005/S006/S007 (appetite +
+Property rating), then S004 (bind), then S008 (extraction), security gate T4/T8 enforced.
 
 ## After approval
 1. You review + approve this plan and the [PRD](./prd.md) / [architecture](./architecture/solution-architecture.md).

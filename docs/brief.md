@@ -62,8 +62,9 @@ Submission intake (structured, + human-verified extraction for ONE LOB)
    → UW decision audit trail
 ```
 
-Pick **one LOB** (recommend **Property** or a **Financial Line**) and **one broker path**. Exercises the
-UW-01 spine + thin slices of UW-02 and UW-04; defers UW-03/UW-05; produces a real, demoable bind.
+**v1 LOB = Property** (chosen) with **one broker path**. Exercises the UW-01 spine + thin slices of UW-02
+and UW-04; defers UW-03/UW-05; produces a real, demoable bind. Property gives the richest COPE/exposure data
+to exercise the file + rating and is the best fit for the extraction assist.
 
 ## Success metrics (the honest "measurable outcome")
 
