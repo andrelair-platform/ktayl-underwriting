@@ -12,6 +12,12 @@ guidelines, rating and decisions, and **binds into the live `ktayl-policy-servic
 deployed platform substrate rather than rebuilding it, and adds exactly one AI capability in v1
 (human-verified submission extraction). It follows the platform's GitOps + Kargo delivery model.
 
+**Technology stack** (ADR-007 — chosen per the [stack-selection rule](https://github.com/andrelair-platform/minicloud-gitops/blob/main/.claude/rules/tech-stack-selection.md)):
+**Backend = Python 3.12 + FastAPI + Pydantic** (SQLAlchemy + Alembic on Postgres; numpy/pandas for the
+rate-table math; a Python extraction worker native to Docling/LiteLLM). **Frontend = Next.js + React.**
+Rationale: the hard parts of this domain — numeric pricing/rating and the document-extraction pipeline —
+live in Python's home ecosystem, and Pydantic gives typed API contracts.
+
 **Architecture decisions of record** (full log in [ADRs](./adr/000-index.md)):
 - **ADR-001** — one **modular monolith service** for v1 (not microservices); split only when a seam proves itself.
 - **ADR-002** — **local entity model** now; refactor to **MDM (#20)** when a second consumer exists.
@@ -62,10 +68,10 @@ flowchart TB
   uw(["Underwriter"])
 
   subgraph S["ktayl-underwriting (system boundary)"]
-    web["Workbench UI · TS / React<br/>the file; inline appetite + rating; KPI view"]
-    api["Underwriting API<br/>submission · entity · guideline · rating · quote · decision · bind"]
-    worker["Async workers<br/>extraction jobs, event publishing"]
-    db[("PostgreSQL (per-service)<br/>submissions, entities, versioned guidelines + rate tables, quotes, audit decisions")]
+    web["Workbench UI · Next.js + React<br/>the file; inline appetite + rating; KPI view"]
+    api["Underwriting API · Python 3.12 + FastAPI + Pydantic<br/>submission · entity · guideline · rating · quote · decision · bind"]
+    worker["Extraction worker · Python<br/>Docling/markitdown + LiteLLM; event publishing"]
+    db[("PostgreSQL (per-service)<br/>SQLAlchemy + Alembic — submissions, entities, versioned guidelines + rate tables, quotes, audit decisions")]
     rag[("Guideline index — Qdrant<br/>vectorised corpus (limited-tier RAG)")]
   end
 
@@ -125,13 +131,13 @@ with an explicit egress allow-list (DNS + LiteLLM + Qdrant + Postgres + PAS + NA
 
 ## 5. Component responsibilities
 
-| Component | Owns | Notes |
-|---|---|---|
-| Workbench UI | The underwriting file, inline appetite/rating, KPI view | Primary-persona surface (task-inbox shape, not CRUD forms) |
-| Underwriting API | Submission/entity/guideline/rating/quote/decision/bind | Modular monolith (ADR-001); local entity model (ADR-002) |
-| Extraction worker | Doc convert → PII mask → LLM extract → human-verify queue | Limited-tier AI; never writes the file without human confirm |
-| PostgreSQL | System of record incl. **immutable decision trail** + **versioned** rate tables/guidelines | ADR-004 |
-| Guideline index (Qdrant) | Cited guideline retrieval | Config over code; OWUI covers free-form Q&A |
+| Component | Stack | Owns | Notes |
+|---|---|---|---|
+| Workbench UI | **Next.js + React** (PWA if mobile is needed) | The underwriting file, inline appetite/rating, KPI view | Primary-persona surface (task-inbox shape, not CRUD forms) |
+| Underwriting API | **Python 3.12 + FastAPI + Pydantic** | Submission/entity/guideline/rating/quote/decision/bind | Modular monolith (ADR-001); local entity model (ADR-002); rating via numpy/pandas |
+| Extraction worker | **Python** | Doc convert → PII mask → LLM extract → human-verify queue | Native to Docling/LiteLLM; limited-tier AI; never writes the file without human confirm |
+| PostgreSQL | **SQLAlchemy + Alembic** | System of record incl. **immutable decision trail** + **versioned** rate tables/guidelines | ADR-004 |
+| Guideline index (Qdrant) | — | Cited guideline retrieval | Config over code; OWUI covers free-form Q&A |
 
 ## 6. Key data flows
 

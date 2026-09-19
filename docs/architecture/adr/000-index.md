@@ -11,6 +11,7 @@
 | [004](#adr-004) | Rate tables & guidelines are versioned, immutable, auditable | Proposed | SA/TL |
 | [005](#adr-005) | Temporal for referral/committee SLAs (UW-03) | Proposed | SA/TL |
 | [006](#adr-006) | Bind contract to `ktayl-policy-service` = versioned API + NATS event | Proposed | SA/TL |
+| [007](#adr-007) | Backend = Python + FastAPI; Frontend = Next.js + React | Proposed | SA/TL |
 
 ---
 
@@ -60,3 +61,17 @@ actuarial.
 bound-risk event**; the call is authenticated (mTLS/OIDC), idempotent, and validated by PAS.
 **Consequences.** Clean, testable handoff (contract test); downstream consumers get clean event-published
 bound-risk data. Defining this early is a v1 priority (Brief goal 2).
+
+## ADR-007 — Backend = Python + FastAPI; Frontend = Next.js + React {#adr-007}
+**Context.** The [stack-selection rule](https://github.com/andrelair-platform/minicloud-gitops/blob/main/.claude/rules/tech-stack-selection.md)
+says pick the best-fit stack per project (not a house default of Go). This domain's hard parts are
+**numeric pricing/rating** (rate tables, factor math) and a **document-extraction pipeline** (Docling/
+markitdown/LLM) — both native to Python — plus a rich, typed, auditable domain.
+**Decision.** **Backend = Python 3.12 + FastAPI + Pydantic** (SQLAlchemy + Alembic on Postgres; numpy/pandas
+for rating; a Python extraction worker). **Frontend = Next.js + React** (PWA only if a mobile/offline need
+is real). The bind call to `ktayl-policy-service` is over HTTP, so its stack is independent (ADR-006).
+**Consequences.** Rating and extraction live in their home ecosystem; Pydantic gives typed API contracts.
+Adds Python to the LOB alongside other services' languages (deliberate variety, per the rule). Trade-off:
+a heavy transactional domain is arguably Java/Spring territory — accepted, because the pricing + AI/document
+weight of *this* domain outweighs it, and ADR-001 keeps it a single modular service. Revisit if a
+transactional-integrity seam later dominates.

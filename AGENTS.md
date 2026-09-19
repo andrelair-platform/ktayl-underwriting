@@ -16,6 +16,9 @@ Policy, command catches, and non-default conventions only.
 - **No standalone MDM** — local entity model until a 2nd consumer (ADR-002). Do not block on MDM.
 
 ## Conventions (non-default)
+- **Stack (ADR-007):** backend = **Python 3.12 + FastAPI + Pydantic** (SQLAlchemy + Alembic; numpy/pandas
+  rating; Python extraction worker); frontend = **Next.js + React**. Chosen per the org stack-selection rule
+  (best-fit per project, not a Go default) — don't silently switch languages.
 - Container build file is named **`Dockerfile`** (never `Containerfile`).
 - Delivery is **GitOps (ArgoCD) + Kargo** dev→prod; prod is CODEOWNERS-gated. Images are env-agnostic
   (runtime config), Cosign-signed + SBOM, ghcr for prod / Harbor for dev.

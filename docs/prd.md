@@ -92,6 +92,14 @@ Declared at design time, verified at the architecture + **security** gates. Insu
 
 Evidence lands in the **Regulatory & Compliance #15** control library (`Risk→Control→Owner→Evidence→Testing→Finding→Remediation→Audit`).
 
+## 5b. Technology stack (ADR-007)
+
+Chosen per the org [stack-selection rule](https://github.com/andrelair-platform/minicloud-gitops/blob/main/.claude/rules/tech-stack-selection.md)
+(best-fit per project, not a Go default): **Backend = Python 3.12 + FastAPI + Pydantic** (SQLAlchemy +
+Alembic on Postgres; numpy/pandas for rate/pricing math; a Python extraction worker native to Docling/
+LiteLLM). **Frontend = Next.js + React** (PWA only if a real mobile/offline need appears). Rationale + the
+trade-off vs Java/Spring: [ADR-007](./architecture/adr/000-index.md#adr-007).
+
 ## 6. Cost
 
 Reuses the existing self-hosted platform substrate (no new cloud spend). AI inference routes through the
