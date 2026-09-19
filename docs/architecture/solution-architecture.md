@@ -23,85 +23,99 @@ deployed platform substrate rather than rebuilding it, and adds exactly one AI c
 ## 2. C4 — Level 1: System Context
 
 ```mermaid
-C4Context
-  title System Context — Underwriting & Pricing (#12)
-  Person(uw, "Underwriter", "Primary user — lives in the workbench")
-  Person(broker, "Broker (external)", "Sends submissions")
-  Person(compliance, "Compliance", "Sanctions/appetite screening")
+flowchart LR
+  uw(["Underwriter<br/>(primary user)"])
+  broker(["Broker<br/>(external)"])
+  compliance(["Compliance"])
 
-  System(uwb, "ktayl-underwriting", "Underwriting workbench, guidelines, rating, decisions")
+  uwb["ktayl-underwriting<br/>workbench · guidelines · rating · decisions"]
 
-  System_Ext(pas, "ktayl-policy-service", "Policy Admin (LIVE) — bind target")
-  System_Ext(idp, "Authentik", "SSO / OIDC + MFA")
-  System_Ext(ai, "LiteLLM + vLLM", "AI gateway / LLM serving (extraction)")
-  System_Ext(doc, "Docling / markitdown", "Document conversion / OCR")
-  System_Ext(bus, "NATS", "Event backbone")
-  System_Ext(down, "Reinsurance #9 / Actuarial #5", "Downstream consumers of bound risk")
+  pas["ktayl-policy-service<br/>Policy Admin (LIVE) — bind target"]
+  idp["Authentik<br/>SSO / OIDC + MFA"]
+  ai["LiteLLM + vLLM<br/>AI gateway / LLM serving (extraction)"]
+  doc["Docling / markitdown<br/>document conversion / OCR"]
+  bus["NATS<br/>event backbone"]
+  down["Reinsurance &amp; Actuarial<br/>downstream consumers of bound risk"]
 
-  Rel(broker, uwb, "Submits risk data + documents")
-  Rel(uw, uwb, "Assesses, prices, quotes, binds")
-  Rel(compliance, uwb, "Screens the counterparty")
-  Rel(uwb, idp, "Authenticates via OIDC")
-  Rel(uwb, doc, "Converts submission docs")
-  Rel(uwb, ai, "Human-verified extraction (PII masked)")
-  Rel(uwb, pas, "Bind handoff (contract)")
-  Rel(uwb, bus, "Publishes bound-risk events")
-  Rel(bus, down, "Bound-risk consumed downstream")
+  broker -->|"submits risk data + documents"| uwb
+  uw -->|"assesses, prices, quotes, binds"| uwb
+  compliance -->|"screens the counterparty"| uwb
+  uwb -->|"authenticates via OIDC"| idp
+  uwb -->|"converts submission docs"| doc
+  uwb -->|"human-verified extraction (PII masked)"| ai
+  uwb -->|"bind handoff (contract)"| pas
+  uwb -->|"publishes bound-risk events"| bus
+  bus -->|"bound-risk consumed downstream"| down
+
+  classDef person fill:#08427b,stroke:#052e56,color:#fff
+  classDef sys fill:#1168bd,stroke:#0b4884,color:#fff
+  classDef ext fill:#e6e6e6,stroke:#999,color:#111
+  class uw,broker,compliance person
+  class uwb sys
+  class pas,idp,ai,doc,bus,down ext
 ```
 
 ## 3. C4 — Level 2: Containers
 
 ```mermaid
-C4Container
-  title Containers — ktayl-underwriting
-  Person(uw, "Underwriter")
+flowchart TB
+  uw(["Underwriter"])
 
-  System_Boundary(s, "ktayl-underwriting") {
-    Container(web, "Workbench UI", "TS / React", "The underwriting file; inline appetite + rating; KPI view")
-    Container(api, "Underwriting API", "service", "Submission, entity, guideline check, rating, quote, decision, bind")
-    Container(worker, "Async workers", "queue consumers", "Extraction jobs, event publishing")
-    ContainerDb(db, "PostgreSQL", "per-service", "Submissions, entities, guidelines(versioned), rate tables(versioned), quotes, decisions(audit)")
-    Container(rag, "Guideline index", "Qdrant", "Vectorised guideline corpus (limited-tier RAG assist)")
-  }
+  subgraph S["ktayl-underwriting (system boundary)"]
+    web["Workbench UI · TS / React<br/>the file; inline appetite + rating; KPI view"]
+    api["Underwriting API<br/>submission · entity · guideline · rating · quote · decision · bind"]
+    worker["Async workers<br/>extraction jobs, event publishing"]
+    db[("PostgreSQL (per-service)<br/>submissions, entities, versioned guidelines + rate tables, quotes, audit decisions")]
+    rag[("Guideline index — Qdrant<br/>vectorised corpus (limited-tier RAG)")]
+  end
 
-  System_Ext(idp, "Authentik")
-  System_Ext(ai, "LiteLLM → vLLM")
-  System_Ext(doc, "Docling / markitdown")
-  System_Ext(pii, "Presidio", "PII masking")
-  System_Ext(bus, "NATS")
-  System_Ext(pas, "ktayl-policy-service")
+  idp["Authentik"]
+  ai["LiteLLM → vLLM"]
+  doc["Docling / markitdown"]
+  pii["Presidio · PII masking"]
+  bus["NATS"]
+  pas["ktayl-policy-service"]
 
-  Rel(uw, web, "HTTPS / OIDC")
-  Rel(web, api, "REST/JSON")
-  Rel(api, db, "reads/writes")
-  Rel(api, rag, "guideline retrieval (cited)")
-  Rel(worker, doc, "convert docs")
-  Rel(worker, pii, "mask PII")
-  Rel(worker, ai, "extraction (post-mask)")
-  Rel(api, idp, "OIDC")
-  Rel(api, pas, "bind contract")
-  Rel(api, bus, "publish bound-risk")
+  uw -->|"HTTPS / OIDC"| web
+  web -->|"REST/JSON"| api
+  api -->|"reads/writes"| db
+  api -->|"guideline retrieval (cited)"| rag
+  worker -->|"convert docs"| doc
+  worker -->|"mask PII"| pii
+  worker -->|"extraction (post-mask)"| ai
+  api -->|"OIDC"| idp
+  api -->|"bind contract"| pas
+  api -->|"publish bound-risk"| bus
+
+  classDef ext fill:#e6e6e6,stroke:#999,color:#111
+  class idp,ai,doc,pii,bus,pas ext
 ```
 
 ## 4. C4 — Level 3: Deployment
 
 ```mermaid
-C4Deployment
-  title Deployment — minicloud (k3s)
-  Deployment_Node(k, "minicloud k3s cluster", "6 nodes, GitOps") {
-    Deployment_Node(ns, "namespace: underwriting", "dev + prod overlays") {
-      Container(web, "workbench-ui", "Deployment + HPA")
-      Container(api, "underwriting-api", "Deployment + HPA")
-      Container(worker, "extraction-worker", "Deployment / KEDA on queue")
-      ContainerDb(db, "postgresql-underwriting", "StatefulSet + Longhorn PVC + Velero")
-    }
-    Deployment_Node(shared, "shared platform ns", "already live") {
-      Container(idp, "Authentik")
-      Container(ai, "LiteLLM / vLLM (ai ns)")
-      Container(bus, "NATS")
-      Container(pas, "ktayl-policy-service")
-    }
-  }
+flowchart TB
+  subgraph K["minicloud k3s cluster — 6 nodes, GitOps"]
+    subgraph NS["namespace: underwriting (dev + prod overlays)"]
+      web["workbench-ui<br/>Deployment + HPA"]
+      api["underwriting-api<br/>Deployment + HPA"]
+      worker["extraction-worker<br/>Deployment / KEDA on queue"]
+      db[("postgresql-underwriting<br/>StatefulSet + Longhorn PVC + Velero")]
+    end
+    subgraph SH["shared platform ns (already live)"]
+      idp["Authentik"]
+      ai["LiteLLM / vLLM (ai ns)"]
+      bus["NATS"]
+      pas["ktayl-policy-service"]
+    end
+  end
+
+  web --> api
+  api --> db
+  api --> idp
+  worker --> ai
+  api --> pas
+  api --> bus
 ```
 
 **Delivery:** GitOps (ArgoCD app-of-apps) + **Kargo** dev→prod promotion (single immutable image per
