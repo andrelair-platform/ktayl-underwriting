@@ -32,11 +32,14 @@ Record every accept/refer/decline/conditions with who/when/why.
 - **DoD** audit query demoed; append-only enforced at schema + code.
 
 ### S004 — Bind → `ktayl-policy-service` contract + bound-risk event  · [UW-01] · P1 · 8
-Define and implement the bind handoff (ADR-006).
-- **AC** ✓ accepting a quote binds a policy in `ktayl-policy-service`; ✓ authenticated + **idempotent** bind;
-  ✓ a **NATS bound-risk event** is published.
-- **AC (fail)** ✗ a duplicate bind does not create two policies (idempotency, T9); ✗ bind above authority is refused server-side (T7).
-- **DoD** contract test against PAS; fault-injection retry test (AVL-3).
+Implement the bind handoff against the **live thin PAS API as-is** (ADR-006): `POST /v1/policies` →
+`/{id}/submit` → `/{id}/activate` (OIDC scope `policy:write`).
+- **AC** ✓ accepting a quote drives create→submit→activate and the policy ends **active**; ✓ a **NATS
+  bound-risk event** is published; ✓ premium/terms stay in UW, linked by `policy_number`.
+- **AC (fail)** ✗ a duplicate bind is a no-op — **deterministic `policy_number`**, PAS `409` treated as
+  success (idempotency, T9); ✗ bind above authority is refused server-side (T7).
+- **DoD** contract test against the PAS OpenAPI (`ktayl-policy-service/api/openapi.yaml`); fault-injection
+  retry test (AVL-3). *Follow-up (not v1): extend `CreatePolicyRequest` with premium/terms + `uw_decision_ref`.*
 
 ### S005 — Versioned guidelines + inline appetite check (cited)  · [UW-02] · P2 · 5
 A small versioned guideline set for the LOB + an inline appetite/eligibility check.
@@ -74,10 +77,11 @@ Docling/markitdown convert → **Presidio mask** → LiteLLM→vLLM extraction �
 | Threat model / security controls declared | ✅ [Threat Model](./architecture/threat-model.md) (T4/T8 = security-gate blockers) |
 | Scope disciplined (thin slice, deferrals explicit) | ✅ one LOB, UW-03/UW-05 deferred, copilot parked |
 | Dependencies are contracts, not blockers | ✅ PAS contract early; MDM local-first; NATS events |
-| **Open decisions for the owner** | ⚠️ **(1)** pick the v1 LOB (Property vs a Financial Line); **(2)** confirm the `ktayl-policy-service` bind API shape |
+| Bind contract confirmed | ✅ **resolved** — map to the live thin PAS API as-is (ADR-006 Accepted: create→submit→activate, deterministic `policy_number` idempotency) |
+| **Open decision for the owner** | ⚠️ **(1)** pick the v1 LOB (Property vs a Financial Line) |
 
-**Verdict: CONCERNS → PASS on two owner decisions.** The plan is implementation-ready once you (1) choose
-the v1 LOB and (2) confirm the bind contract shape with the policy service. No code should start before that.
+**Verdict: CONCERNS → PASS on one remaining owner decision.** The bind contract is now settled (ADR-006
+Accepted). The plan is implementation-ready once you choose the **v1 LOB**. No code should start before that.
 
 ## After approval
 1. You review + approve this plan and the [PRD](./prd.md) / [architecture](./architecture/solution-architecture.md).

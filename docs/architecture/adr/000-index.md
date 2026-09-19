@@ -10,7 +10,7 @@
 | [003](#adr-003) | AI is assistive + human-verified only (no autonomous action) | Proposed | SA/TL |
 | [004](#adr-004) | Rate tables & guidelines are versioned, immutable, auditable | Proposed | SA/TL |
 | [005](#adr-005) | Temporal for referral/committee SLAs (UW-03) | Proposed | SA/TL |
-| [006](#adr-006) | Bind contract to `ktayl-policy-service` = versioned API + NATS event | Proposed | SA/TL |
+| [006](#adr-006) | Bind contract to `ktayl-policy-service` (create→submit→activate, map to thin API) | **Accepted** | SA/TL |
 | [007](#adr-007) | Backend = Python + FastAPI; Frontend = Next.js + React | Proposed | SA/TL |
 
 ---
@@ -55,12 +55,25 @@ complexity; no in-place edits.
 leaves the right seam; no v1 work.
 
 ## ADR-006 — Bind contract to `ktayl-policy-service` {#adr-006}
+**Status: Accepted (v1) — map to the live thin API as-is.**
 **Context.** Bind is the cross-service handoff to the live PAS and the trigger for downstream reinsurance/
-actuarial.
-**Decision.** The bind is an **explicit versioned API contract** to `ktayl-policy-service` **plus a NATS
-bound-risk event**; the call is authenticated (mTLS/OIDC), idempotent, and validated by PAS.
-**Consequences.** Clean, testable handoff (contract test); downstream consumers get clean event-published
-bound-risk data. Defining this early is a v1 priority (Brief goal 2).
+actuarial. The **live contract** is in `ktayl-policy-service/api/openapi.yaml` + `internal/api/router.go`
+(a Go service). Binding is a **3-step lifecycle**, not one call; `CreatePolicyRequest` is thin
+(holder/product/dates) and carries **no** premium/limits/terms/UW-decision link.
+**Decision.** For v1, UW binds against the policy service **as-is** (no change to the live service):
+1. `POST /v1/policies` — `{policy_number, holder_name, product_code, effective_date, expiry_date}` → `draft`
+2. `POST /v1/policies/{id}/submit` — draft → submitted
+3. `POST /v1/policies/{id}/activate` — submitted → **active** (this is "bind")
+
+Auth = Authentik **OIDC JWT with scope `policy:write`**. **Idempotency** is achieved with a
+**deterministic `policy_number`** derived from the UW quote id (PAS returns `409` on a duplicate → treat
+as success/no-op). Then publish the **NATS bound-risk event**. Premium/limits/terms/UW-decision stay in the
+`ktayl-underwriting` record for v1, **linked by `policy_number`**.
+**Consequences.** Unblocks the thin slice with zero change to the live PAS; clean, testable handoff
+(contract test against the OpenAPI). **Accepted limitation:** the policy record doesn't hold premium/terms
+yet — a **follow-up** would extend `CreatePolicyRequest` (premium, limits, deductibles, terms[],
+`uw_decision_ref`, an explicit `Idempotency-Key`) so the policy is the single source of truth. Revisit when
+a second consumer needs premium/terms from the policy service directly.
 
 ## ADR-007 — Backend = Python + FastAPI; Frontend = Next.js + React {#adr-007}
 **Context.** The [stack-selection rule](https://github.com/andrelair-platform/minicloud-gitops/blob/main/.claude/rules/tech-stack-selection.md)

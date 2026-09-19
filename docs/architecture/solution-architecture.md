@@ -145,7 +145,9 @@ with an explicit egress allow-list (DNS + LiteLLM + Qdrant + Postgres + PAS + NA
    **human verification** → structured Submission in Postgres. (No unverified LLM output is persisted.)
 2. **Appetite check:** submission vs versioned guidelines → in-appetite / refer / decline **+ cited reason** → file.
 3. **Rating:** factor model × versioned rate table → technical premium + **explainable breakdown** → quote.
-4. **Bind:** quote accepted → **bind contract → `ktayl-policy-service`** → policy issued → **NATS bound-risk event** → decision trail closed.
+4. **Bind:** quote accepted → **`POST /v1/policies` → `/submit` → `/activate`** on `ktayl-policy-service`
+   (OIDC scope `policy:write`; deterministic `policy_number` = idempotency, `409`=no-op) → policy active →
+   **NATS bound-risk event** → decision trail closed. Premium/terms stay in UW, linked by `policy_number` (ADR-006).
 
 ## 7. Cross-references
 
