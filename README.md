@@ -86,6 +86,14 @@ export DATABASE_URL="postgresql+psycopg://user:pass@host:5432/underwriting"
 make migrate          # alembic upgrade head (creates tables + seeds appetite ruleset v1)
 ```
 
+**Self-migrate on startup (the platform standard).** In-cluster the app migrates itself: on startup
+(FastAPI lifespan) it waits for the DB to accept connections, runs `alembic upgrade head`, then seeds
+appetite ruleset v1 — all idempotent — before serving. This avoids a separate Alembic migration Job,
+which would deadlock the ArgoCD sync ordering (the Job depends on the CNPG DB created in the same
+sync). The behaviour is gated by `RUN_DB_MIGRATIONS_ON_STARTUP` (default `true`); the L1 test suite
+sets it `false` and builds the schema in-memory instead. `make migrate` above stays available for
+running migrations manually against any Postgres.
+
 `DATABASE_URL` is read at runtime (env-agnostic image). Tests run without Postgres: the appetite
 engine tests are pure and the API tests use a `TestClient` with the DB dependency overridden to a
 SQLite in-memory session.
