@@ -249,3 +249,16 @@ def test_token_provider_is_a_seam() -> None:
     provider = FakeTokenProvider("abc")
     assert provider.token() == "abc"
     assert provider.calls == 1
+
+
+def test_cover_dates_are_rfc3339_datetimes() -> None:
+    """Regression: the policy-service Go validator rejects a bare date ('datetime' tag) — the mapping
+    must emit full RFC3339 datetimes (…T00:00:00Z), which is what the live PAS accepted (2026-09-27)."""
+    from datetime import datetime
+
+    from app.bind.service import _cover_dates
+
+    eff, exp = _cover_dates()
+    for v in (eff, exp):
+        assert v.endswith("Z") and "T" in v
+        datetime.strptime(v, "%Y-%m-%dT%H:%M:%SZ")  # parses → valid RFC3339 (UTC 'Z')
