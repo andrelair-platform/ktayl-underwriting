@@ -1,0 +1,20 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ktayl-underwriting
+  title: ktayl Underwriting & Pricing
+  description: Underwriting workbench (intake, appetite/eligibility, decision, audit) for the ktayl-solution insurance IS
+  annotations:
+    github.com/project-slug: andrelair-platform/ktayl-underwriting
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - python
+    - fastapi
+    - insurance
+    - underwriting
+    - backend
+spec:
+  type: service
+  lifecycle: development
+  owner: user:AndreLiar
+  system: ktayl-solution

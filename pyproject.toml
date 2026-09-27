@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ktayl-underwriting"
+version = "0.1.0"
+description = "Underwriting workbench (intake, appetite/eligibility, decision, audit) for the ktayl-solution insurance IS"
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "AndreLiar" }]
+dependencies = [
+  "fastapi==0.115.6",
+  "pydantic==2.10.4",
+  "pydantic-settings==2.7.1",
+  "sqlalchemy==2.0.36",
+  "alembic==1.14.0",
+  "uvicorn[standard]==0.34.0",
+  "psycopg[binary]==3.2.3",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest==8.3.4",
+  "pytest-cov==6.0.0",
+  "httpx==0.28.1",
+  "ruff==0.15.7",
+  "mypy==1.14.1",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=app --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/db/migrations/*", "migrations/*", "app/__main__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]

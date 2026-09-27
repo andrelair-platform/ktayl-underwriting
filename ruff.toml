@@ -1,0 +1,22 @@
+# Ruff config for the ktayl-underwriting service (a Tier-A business-logic Python repo).
+# Real correctness lints + import hygiene + a few opinionated modernizers; line length 120.
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "I",   # isort (import ordering)
+  "W",   # pycodestyle warnings
+  "UP",  # pyupgrade
+  "B",   # flake8-bugbear
+  "C4",  # flake8-comprehensions
+]
+ignore = [
+  "B008", # function call in argument defaults — required by FastAPI Depends()
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["B011"]
+"migrations/*" = ["E501"]
