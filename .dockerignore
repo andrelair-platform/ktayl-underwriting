@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+tests/
+bmad/
+docs/
+_bmad/
+_bmad-output/
+.git/
+.github/
+.DS_Store
+htmlcov/
+.coverage

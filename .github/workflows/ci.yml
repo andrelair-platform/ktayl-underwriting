@@ -1,0 +1,54 @@
+name: CI
+
+# Tier-A business-logic Python repo (testing.md): L0 (ruff + mypy) then L1 (pytest --cov ≥70%).
+# Tests run with no Docker/network (SQLite in-memory), so no service containers are needed.
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (service + test extras)
+        run: pip install -e ".[test]"
+
+      - name: ruff (lint)
+        run: ruff check .
+
+      - name: ruff (format check)
+        run: ruff format --check .
+
+      - name: mypy (types)
+        run: mypy .
+
+  test-unit:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (service + test extras)
+        run: pip install -e ".[test]"
+
+      - name: pytest (L1, coverage ≥70%)
+        run: pytest --cov --cov-report=term-missing --cov-fail-under=70
