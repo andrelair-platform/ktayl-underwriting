@@ -34,6 +34,7 @@ against the **current versioned, immutable appetite ruleset** (ADR-004) → pers
 | `appetite` | **Versioned, immutable** `AppetiteRuleset` + a pure `assess(facts, ruleset) -> (outcome, reason_codes)` engine |
 | `decision` | Persisted `Decision` (outcome, reason codes, appetite version, decided_by/at) |
 | `rating` | **Versioned, immutable** `RateTable` + a pure `rate(facts, rate_table) -> QuoteBreakdown` engine; persisted `Quote` (UW-04-S01) |
+| `bind` | Binds an accepted + quoted risk into the live `ktayl-policy-service` (ADR-006) + emits the bound-risk NATS event; persisted `Binding` (UW-01-S02). All external effects (PAS client / publisher / token provider) sit behind `Protocol` interfaces, injected via `Depends` |
 | `audit` | **Append-only** `AuditEntry` (never updated/deleted) |
 
 ## Appetite engine
@@ -70,6 +71,36 @@ fireworks_manufacturing 3.0`; ordered adjustments `high_tiv_loading +10%` (TIV >
 `sprinklered_discount −5%` (requested-cover text mentions a sprinkler). Both adjustment flags are derived
 from existing submission fields — no new submission columns.
 
+## Bind — hand a risk to the live policy service (UW-01-S02, ADR-006)
+
+Bind is the cross-service handoff: an **accepted + quoted** risk is turned into an active policy in the
+live `ktayl-policy-service` (a separate Go service — bound against **as-is**, no change to it) and a
+**bound-risk event** is emitted (the reinsurance/actuarial seam). It is a **3-step PAS lifecycle**, not
+one call:
+
+1. `POST /v1/policies` `{policy_number, holder_name, product_code, effective_date, expiry_date}` → `draft`
+2. `POST /v1/policies/{id}/submit` → `submitted`
+3. `POST /v1/policies/{id}/activate` → **active** (= bind)
+
+Every external effect sits behind a `typing.Protocol` injected via `Depends`, so **L1 runs with no
+network**: `PolicyServiceClient` (httpx, `POLICY_SERVICE_URL`), `TokenProvider` (OAuth2
+client-credentials against Authentik, scope `policy:write`, in-memory cached), and `BoundRiskPublisher`
+(nats-py, `NATS_URL`, subject `insurance.underwriting.bound-risk`).
+
+**Idempotency (ADR-006), three layers:** a **deterministic `policy_number = UW-<sha1(quote_id)[:12]>`**
+(pure, unit-tested) → a PAS `409` on a duplicate create is treated as **success** (the client resolves
+the existing id and continues) → and if a UW `Binding` already exists for the submission, bind is a
+**no-op** returning it (no PAS calls, no duplicate event). Premium/terms stay in the UW record, linked to
+the policy by `policy_number` (ADR-006 accepted limitation: the thin PAS `CreatePolicyRequest` carries no
+premium/terms yet).
+
+The **bound-risk event** shape: `{policy_number, submission_id, quote_id, premium_minor, currency,
+product_code, effective_date, expiry_date}`. Publishing is **best-effort** — a publish failure never
+fails an already-activated bind (it is logged, recorded in the audit detail, and `event_published` stays
+`false`). **CreatePolicyRequest mapping:** `holder_name` = the submission's counterparty name;
+`product_code` from a LOB map (`commercial_property → COMM_PROP`); `effective_date`/`expiry_date` default
+to today → +1 year (v1 assumption — the thin intake carries no cover dates yet).
+
 ## Endpoints
 
 | Method | Path | Description |
@@ -78,6 +109,8 @@ from existing submission fields — no new submission columns.
 | POST | `/v1/submissions/{id}/assess` | Run the appetite engine, persist `Decision` + audit → returns the decision (`404` if missing) |
 | POST | `/v1/submissions/{id}/quote` | Price the submission against the current rate table, persist `Quote` + audit → returns quote + breakdown. **Guard:** latest decision `decline` → `409`; missing submission/decision → `404` |
 | GET | `/v1/submissions/{id}/quote` | The latest quote (+ breakdown) (`404` if none) |
+| POST | `/v1/submissions/{id}/bind` | Bind the accepted + quoted risk into the live policy service (create→submit→activate) + emit the bound-risk event → returns the `Binding`. **Guard:** latest decision must be `accept` and a quote must exist (`422` otherwise); `404` if missing. **Idempotent** re-bind returns the existing binding (no duplicate PAS calls/event) |
+| GET | `/v1/submissions/{id}/bind` | The binding for a submission (`404` if not bound) |
 | GET | `/v1/rate-tables` | The rate-table versions |
 | GET | `/v1/submissions/{id}` | The submission + its latest decision (`404` if missing) |
 | GET | `/v1/submissions/{id}/audit` | The append-only audit log (`404` if the submission is missing) |

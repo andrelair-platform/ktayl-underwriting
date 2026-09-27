@@ -15,6 +15,7 @@ from sqlalchemy.pool import StaticPool
 # Import models so all tables register on Base.metadata before create_all.
 from app.appetite import models as _appetite_models  # noqa: F401
 from app.audit import models as _audit_models  # noqa: F401
+from app.bind import models as _bind_models  # noqa: F401
 from app.db.base import Base, get_db
 from app.decision import models as _decision_models  # noqa: F401
 from app.entity import models as _entity_models  # noqa: F401

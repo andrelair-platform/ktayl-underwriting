@@ -18,13 +18,14 @@ dependencies = [
   "alembic==1.14.0",
   "uvicorn[standard]==0.34.0",
   "psycopg[binary]==3.2.3",
+  "httpx==0.28.1",
+  "nats-py==2.9.0",
 ]
 
 [project.optional-dependencies]
 test = [
   "pytest==8.3.4",
   "pytest-cov==6.0.0",
-  "httpx==0.28.1",
   "ruff==0.15.7",
   "mypy==1.14.1",
 ]

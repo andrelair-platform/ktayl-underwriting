@@ -29,6 +29,17 @@ class Settings(BaseSettings):
     # tests, which create the schema in-memory via Base.metadata.create_all instead of Alembic.
     run_db_migrations_on_startup: bool = True
 
+    # --- Bind to the live policy service (ADR-006) --------------------------------------------
+    # The live ktayl-policy-service base URL; the UW service binds risk into it (create→submit→activate).
+    policy_service_url: str = "http://ktayl-policy-service.default.svc:8080"
+    # NATS URL for the bound-risk event (the reinsurance/actuarial seam). Empty = no publish target.
+    nats_url: str = ""
+    # OAuth2 client-credentials (Authentik) for the PAS token (scope policy:write). Empty in dev.
+    oidc_token_url: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+    oidc_scope: str = "policy:write"
+
     @property
     def version(self) -> str:
         return _read_version()

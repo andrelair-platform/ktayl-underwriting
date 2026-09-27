@@ -4,8 +4,20 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import AppetiteRepo, AuditRepo, CounterpartyRepo, DbSession, QuoteRepo, RateTableRepo
+from app.api.deps import (
+    AppetiteRepo,
+    AuditRepo,
+    BindingRepo,
+    BoundRiskPublisherDep,
+    CounterpartyRepo,
+    DbSession,
+    PolicyServiceClientDep,
+    QuoteRepo,
+    RateTableRepo,
+)
 from app.audit.schemas import AuditEntryRead
+from app.bind import service as bind_service
+from app.bind.schemas import BindingRead
 from app.config import get_settings
 from app.decision.schemas import DecisionRead
 from app.rating import service as rating_service
@@ -95,6 +107,53 @@ def get_quote(submission_id: str, db: DbSession, quotes: QuoteRepo) -> QuoteRead
     if quote is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no quote for submission") from None
     return QuoteRead.model_validate(quote)
+
+
+@v1.post("/submissions/{submission_id}/bind", response_model=BindingRead)
+def bind_submission(
+    submission_id: str,
+    db: DbSession,
+    bindings: BindingRepo,
+    quotes: QuoteRepo,
+    audit: AuditRepo,
+    policy_client: PolicyServiceClientDep,
+    publisher: BoundRiskPublisherDep,
+) -> BindingRead:
+    # Guard: the latest decision must be accept AND a quote must exist; re-bind is an idempotent no-op.
+    try:
+        binding = bind_service.bind_submission(
+            db, submission_id, bindings, quotes, audit, policy_client, publisher, actor=_ACTOR
+        )
+    except service.SubmissionNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="submission not found") from None
+    except bind_service.NoAcceptedDecisionError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="only an accepted submission can be bound",
+        ) from None
+    except bind_service.NoQuoteError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="submission has no quote to bind"
+        ) from None
+    except bind_service.PolicyAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="policy already exists in the policy service but could not be resolved",
+        ) from None
+    return BindingRead.model_validate(binding)
+
+
+@v1.get("/submissions/{submission_id}/bind", response_model=BindingRead)
+def get_binding(submission_id: str, db: DbSession, bindings: BindingRepo) -> BindingRead:
+    # 404 if the submission itself does not exist, or if it exists but is not bound yet.
+    try:
+        service.get_submission(db, submission_id)
+    except service.SubmissionNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="submission not found") from None
+    binding = bind_service.latest_binding(db, submission_id, bindings)
+    if binding is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="submission is not bound") from None
+    return BindingRead.model_validate(binding)
 
 
 @v1.get("/rate-tables", response_model=list[RateTableRead])

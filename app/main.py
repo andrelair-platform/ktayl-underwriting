@@ -13,6 +13,7 @@ from app.api.routes import ops, v1
 from app.appetite import models as _appetite_models  # noqa: F401
 from app.appetite.repository import seed_v1
 from app.audit import models as _audit_models  # noqa: F401
+from app.bind import models as _bind_models  # noqa: F401
 from app.config import get_settings
 from app.db.base import SessionLocal
 from app.db.startup import bootstrap_database
