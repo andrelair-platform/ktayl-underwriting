@@ -70,6 +70,97 @@ def test_assess_missing_submission_404(client: TestClient) -> None:
     assert resp.status_code == 404
 
 
+# --- POST /v1/submissions/{id}/quote ---------------------------------------
+
+
+def test_quote_accept_returns_premium_and_breakdown(client: TestClient) -> None:
+    sub_id = _create(client)  # warehouse €500,000 FR → accept
+    assert client.post(f"/v1/submissions/{sub_id}/assess").json()["outcome"] == "accept"
+    resp = client.post(f"/v1/submissions/{sub_id}/quote")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # warehouse factor 1.25: 0.5‰ × €500,000 × 1.25 = €312.50 = 31_250 eurocents
+    assert body["premium_minor"] == 31_250
+    assert body["currency"] == "EUR"
+    assert body["rate_table_version"] == 1
+    assert body["submission_id"] == sub_id
+    kinds = [li["kind"] for li in body["breakdown"]]
+    assert kinds == ["base", "factor"]
+    # breakdown reconciles to the premium
+    assert body["breakdown"][-1]["running_subtotal_minor"] == body["premium_minor"]
+
+
+def test_quote_refer_is_allowed(client: TestClient) -> None:
+    # above authority → refer (not decline) → quotable
+    sub_id = _create(client, tiv_eur=2_000_000_000)
+    assert client.post(f"/v1/submissions/{sub_id}/assess").json()["outcome"] == "refer"
+    resp = client.post(f"/v1/submissions/{sub_id}/quote")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["premium_minor"] > 0
+
+
+def test_quote_declined_risk_409(client: TestClient) -> None:
+    sub_id = _create(client, country="KP")  # sanctioned → decline
+    assert client.post(f"/v1/submissions/{sub_id}/assess").json()["outcome"] == "decline"
+    resp = client.post(f"/v1/submissions/{sub_id}/quote")
+    assert resp.status_code == 409
+
+
+def test_quote_without_decision_404(client: TestClient) -> None:
+    sub_id = _create(client)  # never assessed
+    resp = client.post(f"/v1/submissions/{sub_id}/quote")
+    assert resp.status_code == 404
+
+
+def test_quote_missing_submission_404(client: TestClient) -> None:
+    resp = client.post("/v1/submissions/nope/quote")
+    assert resp.status_code == 404
+
+
+def test_quote_writes_audit_entry(client: TestClient) -> None:
+    sub_id = _create(client)
+    client.post(f"/v1/submissions/{sub_id}/assess")
+    client.post(f"/v1/submissions/{sub_id}/quote")
+    actions = [e["action"] for e in client.get(f"/v1/submissions/{sub_id}/audit").json()]
+    assert actions == ["submission.created", "submission.assessed", "quote"]
+
+
+def test_requote_yields_new_latest_quote(client: TestClient) -> None:
+    sub_id = _create(client)
+    client.post(f"/v1/submissions/{sub_id}/assess")
+    first = client.post(f"/v1/submissions/{sub_id}/quote").json()
+    second = client.post(f"/v1/submissions/{sub_id}/quote").json()
+    assert first["id"] != second["id"]
+    latest = client.get(f"/v1/submissions/{sub_id}/quote").json()
+    assert latest["id"] == second["id"]
+
+
+# --- GET /v1/submissions/{id}/quote ----------------------------------------
+
+
+def test_get_quote_before_quoting_404(client: TestClient) -> None:
+    sub_id = _create(client)
+    resp = client.get(f"/v1/submissions/{sub_id}/quote")
+    assert resp.status_code == 404
+
+
+def test_get_quote_missing_submission_404(client: TestClient) -> None:
+    resp = client.get("/v1/submissions/nope/quote")
+    assert resp.status_code == 404
+
+
+# --- GET /v1/rate-tables ----------------------------------------------------
+
+
+def test_list_rate_tables(client: TestClient) -> None:
+    resp = client.get("/v1/rate-tables")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["version"] == 1
+    assert "base_rate_permille" in body[0]["rules"]
+
+
 # --- GET /v1/submissions/{id} ----------------------------------------------
 
 

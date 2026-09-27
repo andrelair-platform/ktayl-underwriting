@@ -18,6 +18,8 @@ from app.db.base import SessionLocal
 from app.db.startup import bootstrap_database
 from app.decision import models as _decision_models  # noqa: F401
 from app.entity import models as _entity_models  # noqa: F401
+from app.rating import models as _rating_models  # noqa: F401
+from app.rating.repository import seed_v1 as seed_rate_table_v1
 from app.submission import models as _submission_models  # noqa: F401
 
 
@@ -28,9 +30,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # off in L1 tests, which build the schema in-memory instead of via Alembic.
     if get_settings().run_db_migrations_on_startup:
         bootstrap_database()
-    # Seed appetite ruleset v1 if none exists (idempotent), against the now-migrated schema.
+    # Seed appetite ruleset v1 + rate table v1 if none exist (idempotent), against the migrated schema.
     with SessionLocal() as session:
         seed_v1(session)
+        seed_rate_table_v1(session)
     yield
 
 
