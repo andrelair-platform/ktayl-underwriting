@@ -38,6 +38,13 @@ def db_session(monkeypatch: pytest.MonkeyPatch) -> Iterator[Session]:
 
     monkeypatch.setattr(app_main, "SessionLocal", testing_session)
 
+    # Disable the startup DB-wait + alembic migration: L1 runs with no Postgres and builds the schema
+    # in-memory via Base.metadata.create_all above (not via Alembic). Flip the gate off on the cached
+    # settings object so the lifespan skips bootstrap_database().
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "run_db_migrations_on_startup", False)
+
     session = testing_session()
     try:
         yield session

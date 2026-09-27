@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     service_name: str = "ktayl-underwriting"
     # Generic dev default; overridden by DATABASE_URL in every real environment.
     database_url: str = "postgresql+psycopg://underwriting:underwriting@localhost:5432/underwriting"
+    # Self-migrate on startup (wait for DB → alembic upgrade head) before serving. Disabled in L1
+    # tests, which create the schema in-memory via Base.metadata.create_all instead of Alembic.
+    run_db_migrations_on_startup: bool = True
 
     @property
     def version(self) -> str:
