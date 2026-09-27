@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from app.appetite.rules import RulesetSpec
+from app.rating.engine import RateTableSpec
+from app.rating.repository import V1_RULES as RATE_V1_RULES
 
 # The v1 seed ruleset as a pure spec (mirrors the seeded DB ruleset).
 V1_SPEC = RulesetSpec(
@@ -14,6 +16,9 @@ V1_SPEC = RulesetSpec(
     excluded_occupancies=frozenset({"fireworks_manufacturing"}),
     sanctioned_countries=frozenset({"KP", "IR", "SY", "RU"}),
 )
+
+# The v1 rate table as a pure spec (mirrors the seeded DB rate table).
+V1_RATE_SPEC = RateTableSpec.from_rules(1, RATE_V1_RULES)
 
 
 def submission_payload(**overrides: Any) -> dict[str, Any]:

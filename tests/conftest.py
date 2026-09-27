@@ -18,6 +18,7 @@ from app.audit import models as _audit_models  # noqa: F401
 from app.db.base import Base, get_db
 from app.decision import models as _decision_models  # noqa: F401
 from app.entity import models as _entity_models  # noqa: F401
+from app.rating import models as _rating_models  # noqa: F401
 from app.submission import models as _submission_models  # noqa: F401
 
 

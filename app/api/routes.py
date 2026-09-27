@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import AppetiteRepo, AuditRepo, CounterpartyRepo, DbSession
+from app.api.deps import AppetiteRepo, AuditRepo, CounterpartyRepo, DbSession, QuoteRepo, RateTableRepo
 from app.audit.schemas import AuditEntryRead
 from app.config import get_settings
 from app.decision.schemas import DecisionRead
+from app.rating import service as rating_service
+from app.rating.schemas import QuoteRead, RateTableRead
 from app.submission import service
 from app.submission.schemas import SubmissionCreate, SubmissionDetail, SubmissionRead
 
@@ -59,6 +61,45 @@ def get_submission(submission_id: str, db: DbSession) -> SubmissionDetail:
     if decision is not None:
         detail.latest_decision = DecisionRead.model_validate(decision)
     return detail
+
+
+@v1.post("/submissions/{submission_id}/quote", response_model=QuoteRead)
+def quote_submission(
+    submission_id: str,
+    db: DbSession,
+    rate_tables: RateTableRepo,
+    quotes: QuoteRepo,
+    audit: AuditRepo,
+) -> QuoteRead:
+    try:
+        quote = rating_service.quote_submission(db, submission_id, rate_tables, quotes, audit, actor=_ACTOR)
+    except service.SubmissionNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="submission not found") from None
+    except rating_service.NoDecisionError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="submission has not been assessed") from None
+    except rating_service.DeclinedRiskError:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="a declined risk cannot be quoted") from None
+    except rating_service.NoRateTableError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="no rate table available") from None
+    return QuoteRead.model_validate(quote)
+
+
+@v1.get("/submissions/{submission_id}/quote", response_model=QuoteRead)
+def get_quote(submission_id: str, db: DbSession, quotes: QuoteRepo) -> QuoteRead:
+    # 404 if the submission itself does not exist, or if it exists but has no quote yet.
+    try:
+        service.get_submission(db, submission_id)
+    except service.SubmissionNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="submission not found") from None
+    quote = rating_service.latest_quote(db, submission_id, quotes)
+    if quote is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no quote for submission") from None
+    return QuoteRead.model_validate(quote)
+
+
+@v1.get("/rate-tables", response_model=list[RateTableRead])
+def list_rate_tables(rate_tables: RateTableRepo) -> list[RateTableRead]:
+    return [RateTableRead.model_validate(rt) for rt in rate_tables.list_versions()]
 
 
 @v1.get("/submissions/{submission_id}/audit", response_model=list[AuditEntryRead])

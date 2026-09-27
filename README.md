@@ -33,6 +33,7 @@ against the **current versioned, immutable appetite ruleset** (ADR-004) → pers
 | `submission` | The risk `Submission` for the starter LOB `commercial_property`; `tiv_eur` is **eurocents** (BIGINT minor units) |
 | `appetite` | **Versioned, immutable** `AppetiteRuleset` + a pure `assess(facts, ruleset) -> (outcome, reason_codes)` engine |
 | `decision` | Persisted `Decision` (outcome, reason codes, appetite version, decided_by/at) |
+| `rating` | **Versioned, immutable** `RateTable` + a pure `rate(facts, rate_table) -> QuoteBreakdown` engine; persisted `Quote` (UW-04-S01) |
 | `audit` | **Append-only** `AuditEntry` (never updated/deleted) |
 
 ## Appetite engine
@@ -53,12 +54,31 @@ max TIV **€10,000,000** (= `1_000_000_000` eurocents, accepted at the boundary
 `fireworks_manufacturing`; sanctioned countries `KP, IR, SY, RU`. Rulesets are **never edited in place**
 — a change is a new version row.
 
+## Rating engine (UW-04-S01)
+
+Pure and unit-testable (no I/O), mirroring the appetite engine: `rate(facts, rate_table) -> QuoteBreakdown`.
+Technical premium = `base_rate‰/1000 × TIV × occupancy_factor`, then the **ordered** loadings/discounts.
+Money is **eurocents** (int); arithmetic runs on a high-precision `Decimal` and is rounded **once** at the
+end so the breakdown reconciles exactly to the premium. The breakdown is an ordered list of line items
+`{label, kind (base|factor|loading|discount), value, running_subtotal_minor}` + the final `premium_minor` —
+human- and auditor-legible. A `Quote` records which `RateTable` version priced it; re-quoting inserts a new
+row (latest wins). Rate tables are **versioned + immutable** (a change is a new version row).
+
+The **v1 rate table** (commercial_property; seeded at migration + startup if none exists): base rate
+**0.5‰** of TIV; occupancy factors `office 1.0 · retail 1.1 · warehouse 1.25 · light_manufacturing 1.5 ·
+fireworks_manufacturing 3.0`; ordered adjustments `high_tiv_loading +10%` (TIV > €5,000,000) then
+`sprinklered_discount −5%` (requested-cover text mentions a sprinkler). Both adjustment flags are derived
+from existing submission fields — no new submission columns.
+
 ## Endpoints
 
 | Method | Path | Description |
 |---|---|---|
 | POST | `/v1/submissions` | Create a submission → `201` + id |
 | POST | `/v1/submissions/{id}/assess` | Run the appetite engine, persist `Decision` + audit → returns the decision (`404` if missing) |
+| POST | `/v1/submissions/{id}/quote` | Price the submission against the current rate table, persist `Quote` + audit → returns quote + breakdown. **Guard:** latest decision `decline` → `409`; missing submission/decision → `404` |
+| GET | `/v1/submissions/{id}/quote` | The latest quote (+ breakdown) (`404` if none) |
+| GET | `/v1/rate-tables` | The rate-table versions |
 | GET | `/v1/submissions/{id}` | The submission + its latest decision (`404` if missing) |
 | GET | `/v1/submissions/{id}/audit` | The append-only audit log (`404` if the submission is missing) |
 | GET | `/healthz` | Liveness |
