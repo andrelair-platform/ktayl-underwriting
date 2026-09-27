@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -74,11 +74,15 @@ def _product_code_for(line_of_business: str) -> str:
 
 
 def _cover_dates() -> tuple[str, str]:
-    """Effective/expiry ISO dates. v1 assumption: effective = today, expiry = +1 year (the thin
-    submission intake carries no cover dates yet)."""
-    effective: date = datetime.now(UTC).date()
+    """Effective/expiry as **RFC3339 datetimes** (the policy-service Go validator requires a full
+    datetime — a bare date is rejected with 'failed on the datetime tag'). v1 assumption: effective =
+    today 00:00Z, expiry = +1 year (the thin submission intake carries no cover dates yet)."""
+    effective = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     expiry = effective + timedelta(days=_DEFAULT_TERM_DAYS)
-    return effective.isoformat(), expiry.isoformat()
+    return (
+        effective.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        expiry.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
 
 
 def _create_request(submission: Submission, counterparty_name: str, policy_number: str) -> CreatePolicyRequest:
