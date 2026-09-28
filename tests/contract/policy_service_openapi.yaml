@@ -1,0 +1,275 @@
+openapi: "3.1.0"
+info:
+  title: ktayl-policy-service
+  version: "0.1.0"
+  description: Insurance policy lifecycle REST API for ktayl-solution IS (CERT-1)
+  contact:
+    name: AndreLiar
+    url: https://github.com/andrelair-platform/ktayl-policy-service
+  license:
+    name: MIT
+
+servers:
+  - url: https://ktayl-policy.10.0.0.200.nip.io
+    description: Internal (Tailscale + minicloud CA)
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: policies
+    description: Policy lifecycle management
+
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      operationId: healthz
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                  version:
+                    type: string
+
+  /v1/policies:
+    post:
+      tags: [policies]
+      summary: Create a policy
+      operationId: createPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePolicyRequest"
+      responses:
+        "201":
+          description: Policy created (status = draft)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+    get:
+      tags: [policies]
+      summary: List policies (cursor pagination)
+      operationId: listPolicies
+      parameters:
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Opaque cursor from previous response next_cursor field
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/PolicyStatus"
+      responses:
+        "200":
+          description: Page of policies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListPoliciesResponse"
+
+  /v1/policies/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags: [policies]
+      summary: Get policy by ID
+      operationId: getPolicy
+      responses:
+        "200":
+          description: Policy found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags: [policies]
+      summary: Update policy fields (DRAFT only)
+      operationId: updatePolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePolicyRequest"
+      responses:
+        "200":
+          description: Policy updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [policies]
+      summary: Cancel a DRAFT policy (soft-delete → terminated)
+      operationId: cancelPolicy
+      responses:
+        "204":
+          description: Policy cancelled
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+components:
+  schemas:
+    PolicyStatus:
+      type: string
+      enum: [draft, active, suspended, terminated]
+
+    CreatePolicyRequest:
+      type: object
+      required:
+        - policy_number
+        - holder_name
+        - product_code
+        - effective_date
+        - expiry_date
+      properties:
+        policy_number:
+          type: string
+          example: "POL-2026-001"
+        holder_name:
+          type: string
+          example: "Jean Dupont"
+        product_code:
+          type: string
+          example: "IARD-AUTO-RC"
+        effective_date:
+          type: string
+          format: date-time
+          example: "2026-09-01T00:00:00Z"
+        expiry_date:
+          type: string
+          format: date-time
+          example: "2027-09-01T00:00:00Z"
+
+    UpdatePolicyRequest:
+      type: object
+      required:
+        - holder_name
+        - product_code
+        - effective_date
+        - expiry_date
+      properties:
+        holder_name:
+          type: string
+        product_code:
+          type: string
+        effective_date:
+          type: string
+          format: date-time
+        expiry_date:
+          type: string
+          format: date-time
+
+    PolicyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        policy_number:
+          type: string
+        holder_name:
+          type: string
+        product_code:
+          type: string
+        status:
+          $ref: "#/components/schemas/PolicyStatus"
+        effective_date:
+          type: string
+          format: date-time
+        expiry_date:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ListPoliciesResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyResponse"
+        next_cursor:
+          type: string
+          description: Pass as ?cursor= in the next request; absent on the last page
+
+    Problem:
+      type: object
+      description: RFC 7807 Problem Details
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad request or validation error
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: Business rule conflict
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"

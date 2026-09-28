@@ -1,7 +1,11 @@
 name: CI
 
-# Tier-A business-logic Python repo (testing.md): L0 (ruff + mypy) then L1 (pytest --cov ≥70%).
-# Tests run with no Docker/network (SQLite in-memory), so no service containers are needed.
+# Tier-A business-logic Python repo (testing.md): the full L0–L4 gate.
+#   L0 lint            — ruff + mypy
+#   L1 test-unit       — pytest tests/unit --cov ≥70% (SQLite in-memory, no Docker/network)
+#   L3 test-contract   — pytest tests/contract (request vs vendored policy-service OpenAPI + own spec)
+#   L2 test-integration— pytest tests/integration (full flow vs a REAL Postgres via testcontainers)
+# L4 (QA-gate smoke, tests/qa/smoke.py) runs post-deploy against the live service — not in this CI.
 
 on:
   push:
@@ -55,11 +59,63 @@ jobs:
       - name: Install (service + test extras)
         run: pip install -e ".[test]"
 
-      - name: pytest (L1, coverage ≥70%)
-        run: pytest --cov --cov-report=term-missing --cov-fail-under=70
+      - name: pytest (L1 unit, coverage ≥70%)
+        run: pytest tests/unit --cov --cov-report=term-missing --cov-fail-under=70
+
+  test-contract:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (service + test extras)
+        run: pip install -e ".[test]"
+
+      - name: pytest (L3 contract — policy-service OpenAPI + own spec)
+        run: pytest tests/contract -q
+
+  test-integration:
+    needs: lint
+    runs-on: ubuntu-latest
+    # A GitHub Actions Postgres service container (deterministic; testcontainers' get_connection_url
+    # flaked on the runner). The L2 test reads TEST_DATABASE_URL; locally it falls back to testcontainers.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: uw
+          POSTGRES_PASSWORD: uw
+          POSTGRES_DB: underwriting_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U uw"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (service + test extras)
+        run: pip install -e ".[test]"
+
+      - name: pytest (L2 integration — full flow vs a real Postgres)
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://uw:uw@localhost:5432/underwriting_test
+        run: pytest tests/integration -q
 
   build-and-push:
-    needs: [lint, test-unit]
+    needs: [lint, test-unit, test-contract, test-integration]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:

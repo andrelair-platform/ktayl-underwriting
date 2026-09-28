@@ -29,14 +29,28 @@ test = [
   "pytest-cov==6.0.0",
   "ruff==0.15.7",
   "mypy==1.14.1",
+  # L3 (contract): validate the request the app sends against the vendored policy-service OpenAPI,
+  # and the app's own OpenAPI. jsonschema drives the format-checked CreatePolicyRequest assertion.
+  "jsonschema==4.23.0",
+  "pyyaml==6.0.2",
+  "schemathesis==3.39.5",
+  "openapi-spec-validator==0.7.1",
+  # L2 (integration): a real Postgres in a throwaway container + real Alembic. psycopg is already a
+  # runtime dep; testcontainers spins the DB. Skipped cleanly when Docker is unavailable.
+  "testcontainers[postgres]==4.9.0",
 ]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
 
+# NOTE: no global --cov in addopts. Each layer is its own directory and its own CI job (see
+# testing.md); coverage is a UNIT-layer (L1) gate only. The per-command flags decide coverage:
+#   L1 unit        : pytest tests/unit --cov --cov-report=term-missing --cov-fail-under=70
+#   L3 contract    : pytest tests/contract -q         (no coverage — it validates contracts)
+#   L2 integration : pytest tests/integration -q      (no coverage — real Postgres, Docker)
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=app --cov-report=term-missing"
+addopts = ""
 
 [tool.coverage.run]
 source = ["app"]

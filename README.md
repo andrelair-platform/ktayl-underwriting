@@ -175,6 +175,40 @@ running migrations manually against any Postgres.
 engine tests are pure and the API tests use a `TestClient` with the DB dependency overridden to a
 SQLite in-memory session.
 
+## Testing (L0–L4)
+
+This repo implements the org-wide 5-layer testing standard (`testing.md`) as a **Tier-A** reference.
+Each layer is its own directory and its own CI job.
+
+| Layer | Where | What it checks | Run | Docker? |
+|---|---|---|---|---|
+| **L0 — Static** | — | ruff (lint + format) + mypy | `make lint` | no |
+| **L1 — Unit** | `tests/unit/` | Pure logic + API over SQLite in-memory, all boundaries mocked; coverage ≥ 70% | `make test` | no |
+| **L3 — Contract** | `tests/contract/` | The request the app **sends** vs the vendored `ktayl-policy-service` OpenAPI (format-checked), + the app's own OpenAPI (schemathesis) | `make test-contract` | no |
+| **L2 — Integration** | `tests/integration/` | The full flow (intake → assess → quote → bind) against a **real Postgres** with **real Alembic**, only the HTTP/NATS boundary faked | `make test-integration` | yes* |
+| **L4 — Smoke / QA-gate** | `tests/qa/` | Adversarial end-to-end pass against a **running** service (all outcomes, guards, validation, idempotency, bound-file lock); exits non-zero on a blocker | `make smoke` (or `BASE_URL=… python tests/qa/smoke.py`) | needs a live service |
+
+\* L2 skips cleanly when Docker is unavailable, so `make test` (L1) stays green locally; CI runs it on
+the Docker-capable runner.
+
+**Why the mocked boundaries are trustworthy.** L1 fakes the policy-service HTTP client, the NATS
+publisher, and the token provider (`tests/fixtures/bind.py`) so it stays fast and offline. That mock is
+kept honest by **L3**: `tests/contract/test_policy_service_contract.py` validates the exact
+`CreatePolicyRequest` body the app builds against the policy service's real OpenAPI schema — with a
+jsonschema **format checker on**, so `format: date-time` is enforced. A dedicated guard proves a
+bare-date payload FAILS that check (the RFC3339 regression the bind flow was written to avoid — see
+`app/bind/service.py::_cover_dates`). The vendored spec is a committed copy of
+`ktayl-policy-service/api/openapi.yaml`; refresh it per `tests/contract/README.md` when that API
+changes.
+
+```bash
+make lint             # L0
+make test             # L1 (unit, coverage-gated)
+make test-contract    # L3 (contracts — no Docker)
+make test-integration # L2 (real Postgres — needs Docker)
+make smoke            # L4 (against a running service)
+```
+
 ## Architecture & planning docs
 
 - [Solution architecture](docs/architecture/solution-architecture.md) · [ADR log](docs/architecture/adr/000-index.md) · [NFR register](docs/architecture/nfr-register.md) · [Threat model](docs/architecture/threat-model.md)
