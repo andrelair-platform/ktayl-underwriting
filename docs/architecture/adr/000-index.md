@@ -12,6 +12,7 @@
 | [005](#adr-005) | Temporal for referral/committee SLAs (UW-03) | Proposed | SA/TL |
 | [006](#adr-006) | Bind contract to `ktayl-policy-service` (create→submit→activate, map to thin API) | **Accepted** | SA/TL |
 | [007](#adr-007) | Backend = Python + FastAPI; Frontend = Next.js + React | Proposed | SA/TL |
+| [008](#adr-008) | Underwriter workbench: Next.js **BFF**, monorepo, git-Warehouse | **Accepted** | SA/TL |
 
 ---
 
@@ -88,3 +89,33 @@ Adds Python to the LOB alongside other services' languages (deliberate variety, 
 a heavy transactional domain is arguably Java/Spring territory — accepted, because the pricing + AI/document
 weight of *this* domain outweighs it, and ADR-001 keeps it a single modular service. Revisit if a
 transactional-integrity seam later dominates.
+
+## ADR-008 — Underwriter workbench: Next.js BFF, monorepo, git-Warehouse {#adr-008}
+**Status: Accepted — built + live on dev (2026-09-28).**
+**Context.** ADR-007 chose Next.js for the UI; this ADR records *how* the workbench is built, wired, and
+promoted. The workbench is the AI-native **task inbox**: the engine auto-decides the rule (accept/decline),
+underwriters work the **referrals**. Three decisions had real forks: where the code lives, how the browser
+reaches the API, and how a two-image service is promoted as a consistent set.
+**Decision.**
+1. **Monorepo `frontend/`** in `ktayl-underwriting` (not a separate repo). One product, one board, one deploy
+   coupling; the API contract stays next to the code. (retrieva later split into per-image repos to *avoid*
+   the git-Warehouse; here the monorepo is deliberate, so the git-Warehouse is required — see (3).)
+2. **BFF, not a browser SPA.** The browser talks **same-origin** to Next.js — **server components** for reads,
+   **server actions** for writes. Next reaches the backend **server-side** via `API_URL` = the in-cluster
+   backend Service (`http://ktayl-underwriting.underwriting.svc:80`), read at **runtime** (never baked). So the
+   underwriting API is **never exposed to the browser**, the image is **env-agnostic** (Kargo promotes one
+   artifact), and prod auth can attach a token in exactly one server-side seam.
+3. **Deployment = dual-aliased library subchart.** The GAP `minicloud-app-deployment` chart is used a **second
+   time** via an aliased `frontend` dependency → one Helm render, one ArgoCD source. **Promotion = a
+   git-Warehouse** (Freight = a source commit; both `minicloud-app-deployment.image.tag` and
+   `frontend.image.tag` are pinned to `commitFrom(...).ID[0:7]`) — **mandatory** for a multi-image monorepo,
+   because two `NewestBuild` image subscriptions produce **mixed Freight** when one image is a byte-identical
+   cached rebuild.
+**Consequences.** A secure, env-agnostic UI promotable as a consistent backend+frontend pair. Server-actions
+over-REST keeps boilerplate low with built-in revalidation. **Operational lesson (recorded so it doesn't
+recur):** a NetworkPolicy that gates ingress-nginx→backend must select the pod's **real** labels — the
+library labels the backend pod `app.kubernetes.io/name=minicloud-app-deployment` +
+`instance=<release>`, **not** `name=<release>`; selecting the latter matched zero pods and 504'd the
+backend ingress (invisible while only the same-namespace BFF used it). Match the **Service selector**.
+Trade-off: the monorepo forces the git-Warehouse (a phantom-commit guard applies if the CI ever gains a
+paths-ignore). Revisit the repo split only if the frontend grows its own release cadence/stakeholders.
