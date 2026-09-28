@@ -1,4 +1,4 @@
-.PHONY: install run test lint fmt migrate
+.PHONY: install run test test-contract test-integration smoke lint fmt migrate
 
 # Install the service + test/dev extras into the active environment.
 install:
@@ -10,7 +10,21 @@ run:
 
 # L1: unit tests with coverage. No Docker, no network (SQLite in-memory).
 test:
-	pytest --cov --cov-report=term-missing --cov-fail-under=70
+	pytest tests/unit --cov --cov-report=term-missing --cov-fail-under=70
+
+# L3: contract tests — the request the app sends vs the vendored policy-service OpenAPI, + own
+# OpenAPI. No Docker, no network.
+test-contract:
+	pytest tests/contract -q
+
+# L2: integration — the full flow against a REAL Postgres (testcontainers). Needs Docker; skips
+# cleanly when Docker is unavailable.
+test-integration:
+	pytest tests/integration -q
+
+# L4: QA-gate smoke against a RUNNING service (BASE_URL, default http://localhost:8000). Not unit CI.
+smoke:
+	python tests/qa/smoke.py
 
 # L0: static gate — ruff (lint) + mypy (types).
 lint:
