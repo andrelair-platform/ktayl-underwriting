@@ -19,14 +19,11 @@ Skips cleanly when Docker is unavailable (``pytest.importorskip`` + a docker-pin
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from typing import Any
 
 import pytest
-
-# Skip the whole module if testcontainers isn't installed (keeps a bare L1 env importable).
-testcontainers_postgres = pytest.importorskip("testcontainers.postgres")
-
 from sqlalchemy import create_engine, select  # noqa: E402
 from sqlalchemy.exc import IntegrityError  # noqa: E402
 from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
@@ -49,9 +46,37 @@ from app.submission.schemas import SubmissionCreate  # noqa: E402
 from tests.fixtures.bind import FakeBoundRiskPublisher, FakePolicyServiceClient  # noqa: E402
 from tests.fixtures.submissions import submission_payload  # noqa: E402
 
-PostgresContainer = testcontainers_postgres.PostgresContainer
-
 _ACTOR = "integration-test"
+
+# L2 needs a REAL Postgres. Prefer a CI-provided one via env TEST_DATABASE_URL (a GitHub Actions service
+# container — the deterministic reference pattern; testcontainers' get_connection_url flaked on the runner);
+# fall back to a throwaway testcontainers Postgres when Docker is available locally; else skip so a bare L1
+# env stays green.
+_TEST_DB_URL = os.environ.get("TEST_DATABASE_URL")
+
+
+def _psycopg_url(url: str) -> str:
+    return url if "+psycopg" in url else url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+
+def _assert_disposable(url: str) -> None:
+    """SAFETY: this test DROPs the schema — refuse to run against anything that isn't an obviously
+    disposable test database. A GH Actions service container / local docker (localhost + a db name
+    containing 'test') is fine; a real dev/prod cluster DB must NEVER be reachable here. Fail loudly
+    rather than wipe a real database if TEST_DATABASE_URL is ever mis-pointed."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    dbname = (parsed.path or "").lstrip("/").lower()
+    is_local = host in {"localhost", "127.0.0.1", "::1", ""}
+    is_test_db = "test" in dbname
+    if not (is_local and is_test_db):
+        raise RuntimeError(
+            f"REFUSING to run the destructive L2 integration test against host={host!r} db={dbname!r}. "
+            "It must be a disposable test DB (localhost + a name containing 'test'). "
+            "NEVER point TEST_DATABASE_URL at a dev/prod database — this test DROPs the schema."
+        )
 
 
 def _docker_available() -> bool:
@@ -65,41 +90,58 @@ def _docker_available() -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(not _docker_available(), reason="Docker not available — L2 needs a real Postgres")
+pytestmark = pytest.mark.skipif(
+    not _TEST_DB_URL and not _docker_available(),
+    reason="L2 needs a real Postgres: set TEST_DATABASE_URL (CI service container) or provide Docker",
+)
+
+
+def _migrated_factory(url: str, *, clean_first: bool) -> Iterator[sessionmaker[Session]]:
+    """Migrate ``url`` with REAL Alembic (``upgrade head`` — the app's own startup path, not a
+    ``create_all`` shortcut), then yield a session factory. ``clean_first`` drops+recreates the public
+    schema so a re-used CI database starts clean and the run is idempotent."""
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import text
+
+    from app.db import startup as db_startup
+
+    engine = create_engine(url, pool_pre_ping=True)
+    if clean_first:
+        # HARD SAFETY: clean_first DROPs the schema. Refuse outright unless `url` is an obviously
+        # disposable test DB — this makes the destructive path incapable of hitting a real database,
+        # not merely "configured not to".
+        _assert_disposable(url)
+        with engine.begin() as conn:
+            conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"))
+
+    cfg = Config(str(db_startup._ALEMBIC_INI))
+    cfg.set_main_option("script_location", str(db_startup._REPO_ROOT / "migrations"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "head")
+
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    # The migrations seed appetite v1 + rate table v1; seed_v1 is idempotent (documents startup seeding).
+    with factory() as s:
+        seed_appetite_v1(s)
+        seed_rate_table_v1(s)
+    try:
+        yield factory
+    finally:
+        engine.dispose()
 
 
 @pytest.fixture(scope="module")
 def pg_session_factory() -> Iterator[sessionmaker[Session]]:
-    """A real Postgres in a throwaway container, migrated with REAL Alembic (upgrade head).
+    """A real Postgres — a CI service container (``TEST_DATABASE_URL``) or a throwaway testcontainers one —
+    migrated with REAL Alembic (``upgrade head``)."""
+    if _TEST_DB_URL:
+        yield from _migrated_factory(_psycopg_url(_TEST_DB_URL), clean_first=True)
+    else:
+        from testcontainers.postgres import PostgresContainer
 
-    We point Alembic at the container URL via ``alembic.config.Config`` + ``command.upgrade`` — the
-    same code path the app uses on startup — so this test exercises the actual migrations, not a
-    ``create_all`` shortcut.
-    """
-    from alembic import command
-    from alembic.config import Config
-
-    from app.db import startup as db_startup
-
-    with PostgresContainer("postgres:16-alpine", driver="psycopg") as postgres:
-        url = postgres.get_connection_url()
-
-        cfg = Config(str(db_startup._ALEMBIC_INI))
-        cfg.set_main_option("script_location", str(db_startup._REPO_ROOT / "migrations"))
-        cfg.set_main_option("sqlalchemy.url", url)
-        command.upgrade(cfg, "head")
-
-        engine = create_engine(url, pool_pre_ping=True)
-        factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-        # The migrations seed appetite v1 + rate table v1; seed_v1 is idempotent, so calling it is a
-        # no-op that also documents the app's startup seeding against the real DB.
-        with factory() as s:
-            seed_appetite_v1(s)
-            seed_rate_table_v1(s)
-        try:
-            yield factory
-        finally:
-            engine.dispose()
+        with PostgresContainer("postgres:16-alpine", driver="psycopg") as postgres:
+            yield from _migrated_factory(_psycopg_url(postgres.get_connection_url()), clean_first=False)
 
 
 @pytest.fixture
