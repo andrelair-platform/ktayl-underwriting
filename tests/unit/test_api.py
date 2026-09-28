@@ -210,6 +210,15 @@ def test_list_pagination_limit(client: TestClient) -> None:
     assert client.get("/v1/submissions", params={"limit": 0}).status_code == 422
 
 
+def test_list_offset_is_upper_bounded(client: TestClient) -> None:
+    # QA B1 regression: an unbounded offset above Postgres bigint max reaches the DB → 500. offset must be
+    # capped so an out-of-range value is rejected at validation (422), never a 500.
+    assert client.get("/v1/submissions", params={"offset": -1}).status_code == 422
+    assert client.get("/v1/submissions", params={"offset": 9_223_372_036_854_775_808}).status_code == 422
+    assert client.get("/v1/submissions", params={"offset": 1_000_001}).status_code == 422
+    assert client.get("/v1/submissions", params={"offset": 0}).status_code == 200
+
+
 # --- GET /v1/submissions/{id} ----------------------------------------------
 
 

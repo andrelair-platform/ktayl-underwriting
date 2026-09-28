@@ -70,7 +70,9 @@ def list_submissions(
     db: DbSession,
     outcome: Annotated[Outcome | None, Query(description="Filter to this latest-decision outcome")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    # offset MUST be upper-bounded: without le=, a value above Postgres bigint max reaches the DB and
+    # raises NumericValueOutOfRange → 500 (QA B1). 1_000_000 is far beyond any real workbench depth.
+    offset: Annotated[int, Query(ge=0, le=1_000_000)] = 0,
 ) -> list[SubmissionListItem]:
     """The workbench inbox: submissions newest-first, each with its latest appetite outcome + bound flag.
     Filter `?outcome=refer` to triage the referrals awaiting an underwriter."""
