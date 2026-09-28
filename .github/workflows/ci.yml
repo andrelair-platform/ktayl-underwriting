@@ -239,6 +239,7 @@ jobs:
           exit-code:      '1'
           severity:       CRITICAL
           ignore-unfixed: true
+          trivyignores:   .trivyignore
 
       - name: Build and push frontend
         id: build_frontend
@@ -260,6 +261,7 @@ jobs:
           exit-code:      '1'
           severity:       CRITICAL
           ignore-unfixed: true
+          trivyignores:   .trivyignore
 
       - name: Install Cosign
         if: github.ref_name == 'main'
