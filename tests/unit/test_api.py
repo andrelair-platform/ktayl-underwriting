@@ -161,6 +161,55 @@ def test_list_rate_tables(client: TestClient) -> None:
     assert "base_rate_permille" in body[0]["rules"]
 
 
+# --- GET /v1/submissions (inbox) -------------------------------------------
+
+
+def test_list_empty(client: TestClient) -> None:
+    resp = client.get("/v1/submissions")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_list_newest_first_with_outcome_and_bound_flags(client: TestClient) -> None:
+    first = _create(client)  # unassessed
+    second = _create(client, tiv_eur=2_000_000_000)  # will be referred
+    client.post(f"/v1/submissions/{second}/assess")
+
+    body = client.get("/v1/submissions").json()
+    assert [item["id"] for item in body] == [second, first]  # newest first
+    by_id = {item["id"]: item for item in body}
+    assert by_id[first]["latest_outcome"] is None and by_id[first]["bound"] is False
+    assert by_id[second]["latest_outcome"] == "refer" and by_id[second]["bound"] is False
+
+
+def test_list_filters_by_latest_outcome(client: TestClient) -> None:
+    accepted = _create(client)
+    client.post(f"/v1/submissions/{accepted}/assess")  # accept
+    referred = _create(client, tiv_eur=2_000_000_000)
+    client.post(f"/v1/submissions/{referred}/assess")  # refer
+    _create(client)  # unassessed → excluded by any outcome filter
+
+    refers = client.get("/v1/submissions", params={"outcome": "refer"}).json()
+    assert [item["id"] for item in refers] == [referred]
+    accepts = client.get("/v1/submissions", params={"outcome": "accept"}).json()
+    assert [item["id"] for item in accepts] == [accepted]
+
+
+def test_list_filter_rejects_bad_outcome_422(client: TestClient) -> None:
+    resp = client.get("/v1/submissions", params={"outcome": "not-a-real-outcome"})
+    assert resp.status_code == 422
+
+
+def test_list_pagination_limit(client: TestClient) -> None:
+    for _ in range(3):
+        _create(client)
+    resp = client.get("/v1/submissions", params={"limit": 2})
+    assert resp.status_code == 200
+    assert len(resp.json()) == 2
+    # limit is bounded (1..200)
+    assert client.get("/v1/submissions", params={"limit": 0}).status_code == 422
+
+
 # --- GET /v1/submissions/{id} ----------------------------------------------
 
 

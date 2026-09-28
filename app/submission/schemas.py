@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.decision.schemas import DecisionRead
 from app.entity.schemas import CounterpartyCreate
-from app.enums import LineOfBusiness, Occupancy
+from app.enums import LineOfBusiness, Occupancy, Outcome
 
 
 class SubmissionCreate(BaseModel):
@@ -45,3 +45,11 @@ class SubmissionDetail(SubmissionRead):
     """Submission plus its latest decision (None until assessed)."""
 
     latest_decision: DecisionRead | None = None
+
+
+class SubmissionListItem(SubmissionRead):
+    """A submission as it appears in the workbench inbox: its fields + the latest appetite outcome
+    (None until assessed) + whether it has been bound. The inbox filters/triages on these two."""
+
+    latest_outcome: Outcome | None = None
+    bound: bool = False

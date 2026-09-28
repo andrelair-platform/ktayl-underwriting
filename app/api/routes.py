@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.auth import current_actor, require_scope
 from app.api.deps import (
@@ -23,10 +23,16 @@ from app.bind import service as bind_service
 from app.bind.schemas import BindingRead
 from app.config import get_settings
 from app.decision.schemas import DecisionRead
+from app.enums import Outcome
 from app.rating import service as rating_service
 from app.rating.schemas import QuoteRead, RateTableRead
 from app.submission import service
-from app.submission.schemas import SubmissionCreate, SubmissionDetail, SubmissionRead
+from app.submission.schemas import (
+    SubmissionCreate,
+    SubmissionDetail,
+    SubmissionListItem,
+    SubmissionRead,
+)
 
 # The authenticated underwriter comes from the OIDC token (Authentik) when auth is ON; when auth is
 # OFF (dev/test, empty AUTHENTIK_JWKS_URL) `current_actor` yields the dev placeholder. The actor is
@@ -57,6 +63,18 @@ def create_submission(
 ) -> SubmissionRead:
     submission = service.create_submission(db, payload, counterparties, audit, actor=actor)
     return SubmissionRead.model_validate(submission)
+
+
+@v1.get("/submissions", response_model=list[SubmissionListItem], dependencies=[_READ])
+def list_submissions(
+    db: DbSession,
+    outcome: Annotated[Outcome | None, Query(description="Filter to this latest-decision outcome")] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[SubmissionListItem]:
+    """The workbench inbox: submissions newest-first, each with its latest appetite outcome + bound flag.
+    Filter `?outcome=refer` to triage the referrals awaiting an underwriter."""
+    return service.list_submissions(db, outcome=outcome, limit=limit, offset=offset)
 
 
 @v1.post("/submissions/{submission_id}/assess", response_model=DecisionRead, dependencies=[_WRITE])
