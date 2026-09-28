@@ -20,7 +20,11 @@ config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False is CRITICAL: this app self-migrates on startup (runs alembic
+    # in-process in the FastAPI lifespan), and fileConfig defaults to disabling every logger already
+    # configured — which silently killed uvicorn's access logs AND the app's request logger after the
+    # startup migration ran (the app appeared to log nothing). Keep alembic's config, keep everyone else's.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 
