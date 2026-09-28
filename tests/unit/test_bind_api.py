@@ -138,3 +138,29 @@ def test_get_binding_after_bind(bind_client: TestClient) -> None:
 
 def test_get_binding_missing_submission_404(bind_client: TestClient) -> None:
     assert bind_client.get("/v1/submissions/nope/bind").status_code == 404
+
+
+# --- M1: a bound submission is frozen (re-assess / re-quote locked) ---------
+
+
+def test_assess_after_bind_409(bind_client: TestClient) -> None:
+    sub_id = _create_assess_quote(bind_client)
+    assert bind_client.post(f"/v1/submissions/{sub_id}/bind").status_code == 200
+    resp = bind_client.post(f"/v1/submissions/{sub_id}/assess")
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "submission already bound"
+
+
+def test_quote_after_bind_409(bind_client: TestClient) -> None:
+    sub_id = _create_assess_quote(bind_client)
+    assert bind_client.post(f"/v1/submissions/{sub_id}/bind").status_code == 200
+    resp = bind_client.post(f"/v1/submissions/{sub_id}/quote")
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "submission already bound"
+
+
+def test_rebind_after_bind_stays_idempotent(bind_client: TestClient) -> None:
+    sub_id = _create_assess_quote(bind_client)
+    first = bind_client.post(f"/v1/submissions/{sub_id}/bind").json()
+    second = bind_client.post(f"/v1/submissions/{sub_id}/bind").json()
+    assert first["id"] == second["id"]

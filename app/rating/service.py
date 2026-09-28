@@ -57,6 +57,10 @@ def quote_submission(
 ) -> Quote:
     """Guard on the latest decision, run the rating engine against the current rate table, persist.
 
+    `quote` rows are **append-only history**: each call INSERTS a new Quote (never an update) and reads
+    use "latest wins" (`latest_quote`). This is intentional negotiation/re-quote history — an auditor
+    can see every price a submission was ever offered — not a bug. No row is mutated or deleted.
+
     Raises SubmissionNotFoundError / NoDecisionError (→ 404), DeclinedRiskError (→ 409),
     NoRateTableError (→ 503).
     """

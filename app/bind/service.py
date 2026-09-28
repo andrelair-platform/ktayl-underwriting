@@ -59,6 +59,15 @@ class NoQuoteError(Exception):
     """Raised when the submission has no quote to bind (→ 422)."""
 
 
+class AlreadyBoundError(Exception):
+    """Raised when a submission is already bound — re-assess/re-quote are locked out (→ 409).
+
+    Binding is the terminal state of the workbench flow: once a risk is bound into the live policy
+    service, its assessment and pricing are frozen. Re-assess and re-quote both raise this; re-bind
+    itself stays idempotent (it returns the existing binding, handled in ``bind_submission``).
+    """
+
+
 def policy_number_for(quote_id: str) -> str:
     """Deterministic, stable policy_number derived from the quote id (ADR-006 idempotency).
 
@@ -202,6 +211,7 @@ def latest_binding(session: Session, submission_id: str, bindings: BindingReposi
 
 # Re-exported so the router can map the client-level conflict without importing the client module.
 __all__ = [
+    "AlreadyBoundError",
     "NoAcceptedDecisionError",
     "NoQuoteError",
     "PolicyAlreadyExistsError",

@@ -22,7 +22,8 @@ from app.rating.models import Quote, RateTable
 #   occupancy_factors  : multiplier per occupancy — riskier activity, higher factor.
 #   adjustments        : ordered, named loadings/discounts. Each is gated by an input flag derived
 #                        from existing submission fields (no new submission columns invented):
-#                          high_tiv_loading   +10% when TIV > €5,000,000 (flag "high_tiv")
+#                          high_tiv_loading   +10% when TIV > €5,000,000 (flag "high_tiv"; strict
+#                                             `>` — NOT applied at exactly €5M, an intentional boundary)
 #                          sprinklered_discount -5% for a sprinklered risk (flag "sprinklered")
 V1_RULES: dict = {
     "base_rate_permille": "0.5",
@@ -39,7 +40,10 @@ V1_RULES: dict = {
     ],
 }
 
-# TIV (eurocents) above which the high_tiv_loading applies — €5,000,000.
+# TIV (eurocents) above which the high_tiv_loading applies — €5,000,000. The band is **strict `>`**:
+# a risk at EXACTLY €5,000,000 is NOT loaded (the loading applies only above it). This is an
+# intentional boundary, matching the appetite TIV authority-band convention (accepted at the
+# boundary, referred/loaded only beyond it) — see app/rating/service.py::_facts_of.
 HIGH_TIV_THRESHOLD_EUR = 500_000_000
 
 

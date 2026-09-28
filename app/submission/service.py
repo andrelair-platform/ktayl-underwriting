@@ -78,7 +78,13 @@ def assess_submission(
     audit: AuditRepository,
     actor: str,
 ) -> Decision:
-    """Run the appetite engine against the current ruleset, persist the Decision + an audit entry."""
+    """Run the appetite engine against the current ruleset, persist the Decision + an audit entry.
+
+    `decision` rows are **append-only history**: each assess INSERTS a new Decision (never an update),
+    and reads use "latest wins" (`latest_decision`). This is intentional — it preserves the full
+    negotiation/re-assessment trail (an auditor can see every decision a submission ever got), not a
+    bug. No row is ever mutated or deleted.
+    """
     submission = get_submission(session, submission_id)
 
     ruleset = appetite.current()

@@ -65,11 +65,17 @@ end so the breakdown reconciles exactly to the premium. The breakdown is an orde
 human- and auditor-legible. A `Quote` records which `RateTable` version priced it; re-quoting inserts a new
 row (latest wins). Rate tables are **versioned + immutable** (a change is a new version row).
 
+**Append-only history (intentional).** Both `decision` and `quote` rows are **append-only**: each
+assess/quote INSERTS a new row and reads use "latest wins". This preserves the full re-assessment /
+re-negotiation trail (every decision and price a submission ever received) for audit — it is a
+deliberate design choice, not a bug. No decision or quote row is ever mutated or deleted.
+
 The **v1 rate table** (commercial_property; seeded at migration + startup if none exists): base rate
 **0.5‰** of TIV; occupancy factors `office 1.0 · retail 1.1 · warehouse 1.25 · light_manufacturing 1.5 ·
-fireworks_manufacturing 3.0`; ordered adjustments `high_tiv_loading +10%` (TIV > €5,000,000) then
-`sprinklered_discount −5%` (requested-cover text mentions a sprinkler). Both adjustment flags are derived
-from existing submission fields — no new submission columns.
+fireworks_manufacturing 3.0`; ordered adjustments `high_tiv_loading +10%` (strict **TIV > €5,000,000** —
+**not** applied at exactly €5M, an intentional band edge matching the appetite TIV authority-band
+convention) then `sprinklered_discount −5%` (requested-cover text mentions a sprinkler). Both adjustment
+flags are derived from existing submission fields — no new submission columns.
 
 ## Bind — hand a risk to the live policy service (UW-01-S02, ADR-006)
 
@@ -95,9 +101,12 @@ the policy by `policy_number` (ADR-006 accepted limitation: the thin PAS `Create
 premium/terms yet).
 
 The **bound-risk event** shape: `{policy_number, submission_id, quote_id, premium_minor, currency,
-product_code, effective_date, expiry_date}`. Publishing is **best-effort** — a publish failure never
-fails an already-activated bind (it is logged, recorded in the audit detail, and `event_published` stays
-`false`). **CreatePolicyRequest mapping:** `holder_name` = the submission's counterparty name;
+product_code, effective_date, expiry_date}`. Publishing is **best-effort with a bounded retry** (a few
+attempts + short backoff) — a publish failure still never fails an already-activated bind (it is logged,
+recorded in the audit detail, and `event_published` stays `false`). A binding left with
+`event_published=false` is the **replay seed for a future transactional outbox / reconciler** (the
+prod-hardening path — not built in v1). **CreatePolicyRequest mapping:** `holder_name` = the submission's
+counterparty name;
 `product_code` from a LOB map (`commercial_property → COMM_PROP`); `effective_date`/`expiry_date` default
 to today → +1 year (v1 assumption — the thin intake carries no cover dates yet).
 
@@ -106,8 +115,8 @@ to today → +1 year (v1 assumption — the thin intake carries no cover dates y
 | Method | Path | Description |
 |---|---|---|
 | POST | `/v1/submissions` | Create a submission → `201` + id |
-| POST | `/v1/submissions/{id}/assess` | Run the appetite engine, persist `Decision` + audit → returns the decision (`404` if missing) |
-| POST | `/v1/submissions/{id}/quote` | Price the submission against the current rate table, persist `Quote` + audit → returns quote + breakdown. **Guard:** latest decision `decline` → `409`; missing submission/decision → `404` |
+| POST | `/v1/submissions/{id}/assess` | Run the appetite engine, persist `Decision` + audit → returns the decision (`404` if missing). **Guard:** a **bound** submission is frozen → `409` (re-assess locked) |
+| POST | `/v1/submissions/{id}/quote` | Price the submission against the current rate table, persist `Quote` + audit → returns quote + breakdown. **Guard:** latest decision `decline` → `409`; a **bound** submission → `409` (re-quote locked); missing submission/decision → `404` |
 | GET | `/v1/submissions/{id}/quote` | The latest quote (+ breakdown) (`404` if none) |
 | POST | `/v1/submissions/{id}/bind` | Bind the accepted + quoted risk into the live policy service (create→submit→activate) + emit the bound-risk event → returns the `Binding`. **Guard:** latest decision must be `accept` and a quote must exist (`422` otherwise); `404` if missing. **Idempotent** re-bind returns the existing binding (no duplicate PAS calls/event) |
 | GET | `/v1/submissions/{id}/bind` | The binding for a submission (`404` if not bound) |
@@ -116,6 +125,21 @@ to today → +1 year (v1 assumption — the thin intake carries no cover dates y
 | GET | `/v1/submissions/{id}/audit` | The append-only audit log (`404` if the submission is missing) |
 | GET | `/healthz` | Liveness |
 | GET | `/info` | Service name + version (from `version.txt`) |
+
+## Auth (per-endpoint, optional — mirrors ktayl-policy-service)
+
+Auth is **off in dev/test, on in prod**, toggled purely by config (`AUTHENTIK_JWKS_URL`). Empty → auth
+**disabled**: endpoints are open and the recorded actor is the dev placeholder `underwriter@ktayl` (same
+as policy-service's "run without auth"). Set → each `/v1` route validates `Authorization: Bearer <jwt>`
+against the Authentik JWKS (signature + expiry only — no audience/issuer check, via PyJWT
+`PyJWKClient`), enforces a space-delimited `scope` claim, and records the token **actor** (first present
+of `preferred_username`, `email`, `sub`). `401` for a missing/invalid/expired token, `403` for a valid
+token lacking the required scope. `/healthz` + `/info` stay unauthenticated.
+
+| Scope | Endpoints |
+|---|---|
+| `underwriting:read` | GET submission / quote / binding / audit / rate-tables |
+| `underwriting:write` | POST submissions / assess / quote / bind |
 
 ## Stack
 

@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     oidc_client_secret: str = ""
     oidc_scope: str = "policy:write"
 
+    # --- Per-endpoint authz (mirrors ktayl-policy-service) -------------------------------------
+    # Authentik JWKS endpoint used to validate the incoming caller's bearer token (signature + exp).
+    # Empty = auth DISABLED (endpoints open, the dev/test default, matching policy-service's
+    # "run without auth"); set in prod to turn per-endpoint scope enforcement ON.
+    authentik_jwks_url: str = ""
+
     @property
     def version(self) -> str:
         return _read_version()
