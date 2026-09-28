@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -26,9 +27,18 @@ from app.rating import models as _rating_models  # noqa: F401
 from app.rating.repository import seed_v1 as seed_rate_table_v1
 from app.submission import models as _submission_models  # noqa: F401
 
-# Log to stdout at INFO so request lines actually show up in `kubectl logs`.
+# Request logging to stdout. NOTE: `logging.basicConfig` alone is unreliable under uvicorn — uvicorn
+# applies its own dictConfig at startup, so an app logger created at import time can end up with no
+# effective stdout handler (its records never reach `kubectl logs`). Give this logger its OWN stdout
+# handler + `propagate=False` so request lines always appear, independent of uvicorn/root config.
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app.request")
+if not logger.handlers:
+    _h = logging.StreamHandler(sys.stdout)
+    _h.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+    logger.addHandler(_h)
+logger.setLevel(logging.INFO)
+logger.propagate = False
 
 
 @asynccontextmanager
