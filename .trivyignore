@@ -1,0 +1,10 @@
+# Accepted, documented vulnerability exceptions for the ktayl-underwriting image scans.
+# Each entry MUST carry: the CVE, why it's accepted, and the revisit trigger. Reviewed on every bump.
+
+# CVE-2026-59873 — node-tar DoS via a crafted gzip bomb (fixed upstream in tar 7.5.19).
+# NOT app-fixable: the affected `tar` is VENDORED inside Next.js at `next/dist/compiled/tar`
+# (Next 16.3.3 still ships tar 6.2.1); npm overrides cannot reach a compiled-in copy.
+# Not runtime-reachable here: it is a BUILD-TIME extractor in Next's toolchain; the workbench never
+# feeds untrusted tarballs to it at runtime (the app is a server-rendered BFF over our own API).
+# Revisit trigger: drop this line when a Next.js release re-vendors tar >= 7.5.19 (check on each bump).
+CVE-2026-59873
