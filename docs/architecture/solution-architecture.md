@@ -3,7 +3,9 @@
 > **BMAD/SA artefact — the technical spine (index).** Path-C new-domain build. Assembles the C4 views, the
 > [NFR Register](./nfr-register.md), the [Threat Model](./threat-model.md) and the [ADR log](./adr/000-index.md)
 > into one set. Owner = SA/TL; approved at the **architecture spine review + security review** gates.
-> **Status: DRAFT for review — no implementation has started.**
+> **Status: the v1 thin slice (intake→appetite→rating→quote→bind) + the underwriter workbench are BUILT
+> and LIVE on dev** (backend + Next.js frontend). Remaining sections describing deferred capabilities
+> (extraction worker, Qdrant RAG, Temporal referral SLAs) are still forward-looking design.
 
 ## 1. Overview
 
@@ -25,6 +27,7 @@ live in Python's home ecosystem, and Pydantic gives typed API contracts.
 - **ADR-004** — **rate tables & guidelines are versioned, immutable, auditable** (control-library pattern).
 - **ADR-005** — **Temporal** for referral/committee SLAs (deferred to UW-03, decision recorded now).
 - **ADR-006** — **bind contract** to `ktayl-policy-service` is an explicit versioned API + a NATS bound-risk event.
+- **ADR-008** — the workbench is a **Next.js BFF** (browser talks same-origin to Next; Next reaches the API server-side), in the **monorepo**, promoted by a **git-Warehouse** (both images pinned to the source commit).
 
 ## 2. C4 — Level 1: System Context
 
@@ -82,8 +85,8 @@ flowchart TB
   bus["NATS"]
   pas["ktayl-policy-service"]
 
-  uw -->|"HTTPS / OIDC"| web
-  web -->|"REST/JSON"| api
+  uw -->|"HTTPS (same-origin)"| web
+  web -->|"REST/JSON · SERVER-SIDE (BFF)<br/>API_URL = in-cluster backend svc"| api
   api -->|"reads/writes"| db
   api -->|"guideline retrieval (cited)"| rag
   worker -->|"convert docs"| doc
@@ -96,6 +99,11 @@ flowchart TB
   classDef ext fill:#e6e6e6,stroke:#999,color:#111
   class idp,ai,doc,pii,bus,pas ext
 ```
+
+> **The workbench is a BFF, not a browser SPA (ADR-008).** The browser only talks **same-origin** to the
+> Next.js container — reads are **server components**, writes are **server actions**. The frontend reaches
+> the Underwriting API **server-side** (`API_URL` = the in-cluster backend Service, read at runtime), so the
+> API is **never exposed to the browser** and the image stays env-agnostic (one artifact, dev→prod).
 
 ## 4. C4 — Level 3: Deployment
 
@@ -124,16 +132,30 @@ flowchart TB
   api --> bus
 ```
 
-**Delivery:** GitOps (ArgoCD app-of-apps) + **Kargo** dev→prod promotion (single immutable image per
-component, ghcr prod tags, Cosign + SBOM), CODEOWNERS-gated prod PR — the platform standard. Env-agnostic
-images (runtime config), Authentik OIDC, ESO/Vault secrets, cert-manager TLS, default-deny NetworkPolicies
-with an explicit egress allow-list (DNS + LiteLLM + Qdrant + Postgres + PAS + NATS only).
+**Delivery (as built):** GitOps (ArgoCD app-of-apps) + **Kargo** dev→prod promotion, CODEOWNERS-gated prod
+PR — the platform standard. The service ships **two images from one monorepo commit** (backend +
+frontend), so:
+- **Deployment = one dual-workload wrapper chart** — the GAP `minicloud-app-deployment` library is used
+  **twice** via an aliased `frontend` dependency (one Helm render, one ArgoCD source).
+- **Promotion = a git-Warehouse** (NOT two image-Warehouses): Freight = a **source commit**, and both
+  `minicloud-app-deployment.image.tag` and `frontend.image.tag` are pinned to `commitFrom(...).ID[0:7]` →
+  a consistent backend+frontend pair reaches each stage. Two `NewestBuild` image subs would produce
+  **mixed Freight** when one image is a byte-identical cached rebuild (ADR-008).
+- Env-agnostic images (runtime config), Authentik OIDC, ESO/Vault secrets, cert-manager **ECDSA** TLS
+  (Vault PKI is EC-only), CNPG Postgres (self-migrating on startup), default-deny **ingress** NetworkPolicies.
+
+> **NetworkPolicy lesson (recorded, ADR-008).** A rule gating `ingress-nginx → backend` must select the
+> pod's **real** labels = the **Service selector**. The library labels the backend pod
+> `app.kubernetes.io/name=minicloud-app-deployment` + `instance=<release>`, **not** `name=<release>` —
+> selecting the latter matched **zero pods**, so the backend ingress **504'd** (invisible while only the
+> same-namespace BFF used the backend; it also silently failed the Kargo dev-verify smoke → nothing was
+> prod-promotable). The frontend→backend BFF hop is covered by the intra-namespace `allow-same-namespace` rule.
 
 ## 5. Component responsibilities
 
 | Component | Stack | Owns | Notes |
 |---|---|---|---|
-| Workbench UI | **Next.js + React** (PWA if mobile is needed) | The underwriting file, inline appetite/rating, KPI view | Primary-persona surface (task-inbox shape, not CRUD forms) |
+| Workbench UI | **Next.js + React (BFF)** | The inbox (referral triage), submission detail (decision + explainable rating breakdown + audit), intake, assess/quote/bind actions | Primary-persona surface (task-inbox shape). **Server components + server actions**; reaches the API server-side via `API_URL` — never browser-side (ADR-008). Built + live on dev |
 | Underwriting API | **Python 3.12 + FastAPI + Pydantic** | Submission/entity/guideline/rating/quote/decision/bind | Modular monolith (ADR-001); local entity model (ADR-002); rating via numpy/pandas |
 | Extraction worker | **Python** | Doc convert → PII mask → LLM extract → human-verify queue | Native to Docling/LiteLLM; limited-tier AI; never writes the file without human confirm |
 | PostgreSQL | **SQLAlchemy + Alembic** | System of record incl. **immutable decision trail** + **versioned** rate tables/guidelines | ADR-004 |
