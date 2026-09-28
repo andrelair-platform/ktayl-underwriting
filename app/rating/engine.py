@@ -24,6 +24,11 @@ class Adjustment:
 
     `factor` is a multiplier applied to the running subtotal: 1.10 = +10% loading, 0.95 = -5% discount.
     `applies_when` names the boolean input flag (from `RatingFacts.flags`) that gates it; None = always.
+
+    Note: the flags are set by the caller (app/rating/service.py::_facts_of). The high-TIV loading's
+    gate ("high_tiv") is a **strict `>` €5,000,000** boundary — the loading does NOT apply at exactly
+    €5M. That is an intentional band edge (same convention as the appetite TIV authority band), not a
+    bug; the engine here just applies whatever flags it is handed.
     """
 
     name: str
