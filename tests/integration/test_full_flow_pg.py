@@ -104,6 +104,7 @@ def _migrated_factory(url: str, *, clean_first: bool) -> Iterator[sessionmaker[S
     from alembic.config import Config
     from sqlalchemy import text
 
+    from app.config import get_settings
     from app.db import startup as db_startup
 
     engine = create_engine(url, pool_pre_ping=True)
@@ -114,6 +115,14 @@ def _migrated_factory(url: str, *, clean_first: bool) -> Iterator[sessionmaker[S
         _assert_disposable(url)
         with engine.begin() as conn:
             conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"))
+
+    # migrations/env.py resolves its URL from the app's own settings (get_settings().database_url,
+    # i.e. DATABASE_URL) and OVERWRITES cfg's sqlalchemy.url — the app self-migrates on startup, so
+    # that's correct for the app. Point the app's DATABASE_URL at THIS test DB (and clear the lru_cache)
+    # so the in-process alembic run migrates the DB we're actually testing, not the app's default DSN.
+    _prev_database_url = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = url
+    get_settings.cache_clear()
 
     cfg = Config(str(db_startup._ALEMBIC_INI))
     cfg.set_main_option("script_location", str(db_startup._REPO_ROOT / "migrations"))
@@ -129,6 +138,12 @@ def _migrated_factory(url: str, *, clean_first: bool) -> Iterator[sessionmaker[S
         yield factory
     finally:
         engine.dispose()
+        # Restore the process DATABASE_URL so a combined run (unit+integration) isn't left mutated.
+        if _prev_database_url is None:
+            os.environ.pop("DATABASE_URL", None)
+        else:
+            os.environ["DATABASE_URL"] = _prev_database_url
+        get_settings.cache_clear()
 
 
 @pytest.fixture(scope="module")
