@@ -1,0 +1,2 @@
+# Next.js public assets (served at the web root). Kept so the standalone Docker build's
+# `COPY /app/public` always has a directory to copy.
