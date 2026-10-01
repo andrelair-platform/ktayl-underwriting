@@ -3,6 +3,7 @@
 // serves dev and prod. `import "server-only"` fails the build if this is ever pulled into a client bundle.
 import "server-only";
 
+import { getApiToken } from "@/lib/auth-token";
 import type {
   AuditEntry,
   Binding,
@@ -30,11 +31,12 @@ export class ApiError extends Error {
   }
 }
 
-// Prod auth gate (parked with the service): when the API enforces Authentik scopes, mint/forward a
-// client-credentials or on-behalf-of token here (server-side) and attach it. In dev the API runs with
-// auth OFF (empty AUTHENTIK_JWKS_URL), so no header is needed. Kept as a seam so wiring it is one place.
-function authHeaders(): Record<string, string> {
-  const token = process.env.UW_API_TOKEN;
+// Prod auth gate: when the backend enforces Authentik scopes (AUTHENTIK_JWKS_URL set), the BFF mints an
+// OAuth2 client-credentials bearer (scope underwriting:read underwriting:write) server-side and attaches
+// it (see lib/auth-token.ts, cached). In dev the backend runs auth OFF, so getApiToken() returns null and
+// no header is sent — one image, both envs.
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getApiToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -43,7 +45,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...authHeaders(),
+      ...(await authHeaders()),
       ...(init?.headers ?? {}),
     },
     cache: "no-store", // the workbench is always live data
