@@ -122,6 +122,9 @@ jobs:
   frontend:
     # Tier-C UI gate for the Next.js underwriter workbench: L0 (eslint) + L1 (vitest) + build (tsc).
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read            # install @andrelair-platform/bff-auth from GitHub Packages
     defaults:
       run:
         working-directory: frontend
@@ -134,8 +137,12 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+          registry-url: https://npm.pkg.github.com
+          scope: "@andrelair-platform"
 
       - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: eslint (L0)
         run: npm run lint
@@ -250,6 +257,10 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags_frontend }}
+          # gh_token (BuildKit secret) lets the deps stage npm ci install @andrelair-platform/bff-auth
+          # from GitHub Packages without baking the token into a layer.
+          secrets: |
+            gh_token=${{ secrets.GITHUB_TOKEN }}
           cache-from: type=gha,scope=frontend
           cache-to:   type=gha,mode=max,scope=frontend
 
