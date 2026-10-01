@@ -2,7 +2,7 @@
   "name": "ktayl-underwriting-frontend",
   "version": "0.1.0",
   "private": true,
-  "description": "Underwriter workbench — Next.js UI for the ktayl-underwriting service",
+  "description": "Underwriter workbench \u2014 Next.js UI for the ktayl-underwriting service",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@andrelair-platform/bff-auth": "^0.1.1",
     "next": "16.3.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

@@ -5,8 +5,11 @@
 # Stage 1 — deps
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+# .npmrc scopes @andrelair-platform to GitHub Packages (authToken is a ${NODE_AUTH_TOKEN} TEMPLATE, not a
+# secret). The token is supplied at build time via a BuildKit secret (never baked into a layer).
+COPY package*.json .npmrc ./
+RUN --mount=type=secret,id=gh_token \
+    NODE_AUTH_TOKEN="$(cat /run/secrets/gh_token)" npm ci
 
 # Stage 2 — build
 FROM node:20-alpine AS builder
