@@ -7,6 +7,15 @@ metadata:
   annotations:
     github.com/project-slug: andrelair-platform/ktayl-underwriting
     backstage.io/techdocs-ref: dir:.
+    # Capability-registry governance columns (§8) — rendered by the Backstage "Gouvernance &
+    # conformité" card; the 4 "applicable" rows deep-link to the BookStack intranet.
+    governance.ktayl-solution/applicable-policy: Politique de souscription|https://intranet.devandre.sbs/books/underwriting-cadre-de-gouvernance/page/01-politique-policy
+    governance.ktayl-solution/applicable-standard: Standard de souscription|https://intranet.devandre.sbs/books/underwriting-cadre-de-gouvernance/page/02-standard
+    governance.ktayl-solution/applicable-guideline: Directive de souscription|https://intranet.devandre.sbs/books/underwriting-cadre-de-gouvernance/page/03-directive-guideline
+    governance.ktayl-solution/applicable-procedure: Procédure de souscription|https://intranet.devandre.sbs/books/underwriting-cadre-de-gouvernance/page/04-procedure
+    governance.ktayl-solution/required-controls: Appétit/éligibilité · référral · plafonds DoA · planchers de tarification · four-eyes
+    governance.ktayl-solution/approval-authority: CUO / comité de souscription (selon la matrice DoA)
+    governance.ktayl-solution/evidence-required: Décision tracée · justification · approbation (journal d'audit append-only)
   tags:
     - python
     - fastapi
