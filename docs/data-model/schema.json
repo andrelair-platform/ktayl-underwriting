@@ -1,0 +1,755 @@
+{
+  "name": "underwriting",
+  "tables": [
+    {
+      "name": "public.appetite_ruleset",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "effective_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "varchar(36)",
+          "nullable": false
+        },
+        {
+          "name": "rules",
+          "type": "json",
+          "nullable": false
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "appetite_ruleset_pkey",
+          "def": "CREATE UNIQUE INDEX appetite_ruleset_pkey ON public.appetite_ruleset USING btree (id)",
+          "table": "public.appetite_ruleset",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "appetite_ruleset_version_key",
+          "def": "CREATE UNIQUE INDEX appetite_ruleset_version_key ON public.appetite_ruleset USING btree (version)",
+          "table": "public.appetite_ruleset",
+          "columns": [
+            "version"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "appetite_ruleset_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.appetite_ruleset",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "appetite_ruleset_version_key",
+          "type": "UNIQUE",
+          "def": "UNIQUE (version)",
+          "table": "public.appetite_ruleset",
+          "referenced_table": "",
+          "columns": [
+            "version"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.audit_entry",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "action",
+          "type": "varchar(64)",
+          "nullable": false
+        },
+        {
+          "name": "actor",
+          "type": "varchar(128)",
+          "nullable": false
+        },
+        {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "detail",
+          "type": "json",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "varchar(36)",
+          "nullable": false
+        },
+        {
+          "name": "outcome",
+          "type": "varchar(16)",
+          "nullable": true
+        },
+        {
+          "name": "ruleset_version",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "submission_id",
+          "type": "varchar(36)",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "audit_entry_pkey",
+          "def": "CREATE UNIQUE INDEX audit_entry_pkey ON public.audit_entry USING btree (id)",
+          "table": "public.audit_entry",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ix_audit_entry_submission_id",
+          "def": "CREATE INDEX ix_audit_entry_submission_id ON public.audit_entry USING btree (submission_id)",
+          "table": "public.audit_entry",
+          "columns": [
+            "submission_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_entry_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.audit_entry",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "audit_entry_submission_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (submission_id) REFERENCES submission(id)",
+          "table": "public.audit_entry",
+          "referenced_table": "public.submission",
+          "columns": [
+            "submission_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.binding",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "bound_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "bound_by",
+          "type": "varchar(128)",
+          "nullable": false
+        },
+        {
+          "name": "event_published",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "varchar(36)",
+          "nullable": false
+        },
+        {
+          "name": "pas_policy_id",
+          "type": "varchar(64)",
+          "nullable": false
+        },
+        {
+          "name": "policy_number",
+          "type": "varchar(64)",
+          "nullable": false
+        },
+        {
+          "name": "quote_id",
+          "type": "varchar(36)",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "varchar(16)",
+          "nullable": false
+        },
+        {
+          "name": "submission_id",
+          "type": "varchar(36)",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "binding_pkey",
+          "def": "CREATE UNIQUE INDEX binding_pkey ON public.binding USING btree (id)",
+          "table": "public.binding",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ix_binding_policy_number",
+          "def": "CREATE UNIQUE INDEX ix_binding_policy_number ON public.binding USING btree (policy_number)",
+          "table": "public.binding",
+          "columns": [
+            "policy_number"
+          ]
+        },
+        {
+          "name": "ix_binding_quote_id",
+          "def": "CREATE INDEX ix_binding_quote_id ON public.binding USING btree (quote_id)",
+          "table": "public.binding",
+          "columns": [
+            "quote_id"
+          ]
+        },
+        {
+          "name": "ix_binding_submission_id",
+          "def": "CREATE UNIQUE INDEX ix_binding_submission_id ON public.binding USING btree (submission_id)",
+          "table": "public.binding",
+          "columns": [
+            "submission_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "binding_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.binding",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "binding_quote_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (quote_id) REFERENCES quote(id)",
+          "table": "public.binding",
+          "referenced_table": "public.quote",
+          "columns": [
+            "quote_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "binding_submission_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (submission_id) REFERENCES submission(id)",
+          "table": "public.binding",
+          "referenced_table": "public.submission",
+          "columns": [
+            "submission_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.counterparty",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "country",
+          "type": "varchar(2)",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "varchar(36)",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "counterparty_pkey",
+          "def": "CREATE UNIQUE INDEX counterparty_pkey ON public.counterparty USING btree (id)",
+          "table": "public.counterparty",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "counterparty_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.counterparty",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.decision",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "appetite_version",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "decided_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "decided_by",
+          "type": "varchar(128)",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "varchar(36)",
+          "nullable": false
+        },
+        {
+          "name": "outcome",
+          "type": "varchar(16)",
+          "nullable": false
+        },
+        {
+          "name": "reason_codes",
+          "type": "json",
+          "nullable": false
+        },
+        {
+          "name": "submission_id",
+          "type": "varchar(36)",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "decision_pkey",
+          "def": "CREATE UNIQUE INDEX decision_pkey ON public.decision USING btree (id)",
+          "table": "public.decision",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ix_decision_submission_id",
+          "def": "CREATE INDEX ix_decision_submission_id ON public.decision USING btree (submission_id)",
+          "table": "public.decision",
+          "columns": [
+            "submission_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "decision_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.decision",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "decision_submission_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (submission_id) REFERENCES submission(id)",
+          "table": "public.decision",
+          "referenced_table": "public.submission",
+          "columns": [
+            "submission_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.quote",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "breakdown",
+          "type": "json",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "created_by",
+          "type": "varchar(128)",
+          "nullable": false
+        },
+        {
+          "name": "currency",
+          "type": "varchar(3)",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "varchar(36)",
+          "nullable": false
+        },
+        {
+          "name": "premium_minor",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "name": "rate_table_version",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "submission_id",
+          "type": "varchar(36)",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "ix_quote_submission_id",
+          "def": "CREATE INDEX ix_quote_submission_id ON public.quote USING btree (submission_id)",
+          "table": "public.quote",
+          "columns": [
+            "submission_id"
+          ]
+        },
+        {
+          "name": "quote_pkey",
+          "def": "CREATE UNIQUE INDEX quote_pkey ON public.quote USING btree (id)",
+          "table": "public.quote",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "quote_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.quote",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "quote_submission_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (submission_id) REFERENCES submission(id)",
+          "table": "public.quote",
+          "referenced_table": "public.submission",
+          "columns": [
+            "submission_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.rate_table",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "effective_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "varchar(36)",
+          "nullable": false
+        },
+        {
+          "name": "rules",
+          "type": "json",
+          "nullable": false
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "rate_table_pkey",
+          "def": "CREATE UNIQUE INDEX rate_table_pkey ON public.rate_table USING btree (id)",
+          "table": "public.rate_table",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "rate_table_version_key",
+          "def": "CREATE UNIQUE INDEX rate_table_version_key ON public.rate_table USING btree (version)",
+          "table": "public.rate_table",
+          "columns": [
+            "version"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "rate_table_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.rate_table",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "rate_table_version_key",
+          "type": "UNIQUE",
+          "def": "UNIQUE (version)",
+          "table": "public.rate_table",
+          "referenced_table": "",
+          "columns": [
+            "version"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "public.submission",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "broker_ref",
+          "type": "varchar(64)",
+          "nullable": true
+        },
+        {
+          "name": "counterparty_id",
+          "type": "varchar(36)",
+          "nullable": false
+        },
+        {
+          "name": "country",
+          "type": "varchar(2)",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "type": "varchar(36)",
+          "nullable": false
+        },
+        {
+          "name": "line_of_business",
+          "type": "varchar(64)",
+          "nullable": false
+        },
+        {
+          "name": "occupancy",
+          "type": "varchar(64)",
+          "nullable": false
+        },
+        {
+          "name": "postcode",
+          "type": "varchar(16)",
+          "nullable": false
+        },
+        {
+          "name": "requested_cover",
+          "type": "varchar(255)",
+          "nullable": false
+        },
+        {
+          "name": "tiv_eur",
+          "type": "bigint",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "submission_pkey",
+          "def": "CREATE UNIQUE INDEX submission_pkey ON public.submission USING btree (id)",
+          "table": "public.submission",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "submission_counterparty_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (counterparty_id) REFERENCES counterparty(id)",
+          "table": "public.submission",
+          "referenced_table": "public.counterparty",
+          "columns": [
+            "counterparty_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "submission_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "public.submission",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "table": "public.audit_entry",
+      "columns": [
+        "submission_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.submission",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (submission_id) REFERENCES submission(id)"
+    },
+    {
+      "table": "public.binding",
+      "columns": [
+        "submission_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.submission",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (submission_id) REFERENCES submission(id)"
+    },
+    {
+      "table": "public.binding",
+      "columns": [
+        "quote_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.quote",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (quote_id) REFERENCES quote(id)"
+    },
+    {
+      "table": "public.decision",
+      "columns": [
+        "submission_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.submission",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (submission_id) REFERENCES submission(id)"
+    },
+    {
+      "table": "public.quote",
+      "columns": [
+        "submission_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.submission",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (submission_id) REFERENCES submission(id)"
+    },
+    {
+      "table": "public.submission",
+      "columns": [
+        "counterparty_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "public.counterparty",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (counterparty_id) REFERENCES counterparty(id)"
+    }
+  ],
+  "driver": {
+    "name": "postgres",
+    "database_version": "PostgreSQL 17.4 (Debian 17.4-1.pgdg120+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit",
+    "meta": {
+      "current_schema": "public",
+      "search_paths": [
+        "postgres",
+        "public"
+      ],
+      "dict": {
+        "Functions": "Stored procedures and functions"
+      }
+    }
+  }
+}
