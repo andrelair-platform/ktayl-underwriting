@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ktayl-underwriting"
-version = "0.1.0"
+version = "0.1.1"
 description = "Underwriting workbench (intake, appetite/eligibility, decision, audit) for the ktayl-solution insurance IS"
 requires-python = ">=3.12"
 readme = "README.md"
