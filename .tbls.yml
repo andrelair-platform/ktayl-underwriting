@@ -1,0 +1,11 @@
+# tbls — reverse-engineers the schema (built by running the ALEMBIC migrations on an ephemeral
+# Postgres) into committed Mermaid ER docs; CI fails if docs/data-model drifts (.github/workflows/ci.yml).
+# public schema; alembic's bookkeeping table excluded. Baseline on x86_64 / postgres:17.4 to match CI.
+docPath: docs/data-model
+er:
+  format: mermaid
+format:
+  sort: true
+  adjust: true
+exclude:
+  - public.alembic_version
