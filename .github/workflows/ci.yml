@@ -91,7 +91,7 @@ jobs:
     # flaked on the runner). The L2 test reads TEST_DATABASE_URL; locally it falls back to testcontainers.
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:17-alpine   # dev/prod parity (12-factor #10) — prod is CNPG 17
         env:
           POSTGRES_USER: uw
           POSTGRES_PASSWORD: uw
