@@ -13,6 +13,7 @@
 | [006](#adr-006) | Bind contract to `ktayl-policy-service` (create→submit→activate, map to thin API) | **Accepted** | SA/TL |
 | [007](#adr-007) | Backend = Python + FastAPI; Frontend = Next.js + React | Proposed | SA/TL |
 | [008](#adr-008) | Underwriter workbench: Next.js **BFF**, monorepo, git-Warehouse | **Accepted** | SA/TL |
+| [009](#adr-009) | Actuarial pricing evolution: loss-model / approved-tariff / engine separation; GLM-first; LLM out of the price | Proposed | SA/TL |
 
 ---
 
@@ -119,3 +120,47 @@ library labels the backend pod `app.kubernetes.io/name=minicloud-app-deployment`
 backend ingress (invisible while only the same-namespace BFF used it). Match the **Service selector**.
 Trade-off: the monorepo forces the git-Warehouse (a phantom-commit guard applies if the CI ever gains a
 paths-ignore). Revisit the repo split only if the frontend grows its own release cadence/stakeholders.
+
+## ADR-009 — Actuarial pricing evolution (loss-model / tariff / engine separation) {#adr-009}
+**Status: Proposed.** Full design: [`actuarial-pricing-evolution.md`](../actuarial-pricing-evolution.md).
+Extends ADR-003 (AI assistive), ADR-004 (versioned/immutable tariffs), ADR-007 (Python).
+
+**Context.** v1 prices with a pure, deterministic engine (`app/rating/rate()`) over a versioned table of
+**hand-set** relativities. To resemble enterprise insurance software the relativities must be **estimated
+from experience** and the premium build-up made actuarially complete — but *without* putting a model
+behind the price or redesigning the app. A senior review corrected several points in the first sketch
+(GLM vs engine are distinct components; reinsurance is not a per-risk discount; SHAP is not premium
+arithmetic; registered ≠ approved; the audit record must enable exact replay; AI-Act risk must be a
+classification artifact, not a hardcoded label; synthetic data proves factor-recovery, not real accuracy).
+
+**Decision.**
+1. **Three distinct layers:** **loss model** (offline GLM freq×severity, estimates expected loss cost,
+   lives in MLflow, never called at quote time) → **approved tariff artifact** (the *complete* governed
+   object: relativities + rounding + effective dates + authority + commercial rules; immutable, versioned
+   per ADR-004) → **deterministic rating engine** (enforces the tariff; the pure `rate()` seam preserved).
+2. **A model is a black box in training, never in pricing** — models compile into the approved tariff;
+   the quoted price is always reconstructable **independently of any model or LLM**.
+3. **GLM-first** (log-link relativities = legible tariff factors → the existing `LineItem` trail survives).
+   **SHAP stays in model validation/governance, never in the quote breakdown.** GBM only at P6, gated on
+   **material** lift, in a refer lane.
+4. **Correct premium build-up:** pure premium → technical indication (expenses, risk/capital margin, CAT
+   provision) → commercial (bounded/authority-gated adjustments) → taxes (IPT)/fees. **Reinsurance is
+   handled at portfolio/capital level** (CAT + cost-of-capital), not a per-risk discount.
+5. **Governed lifecycle:** data → train → **independent validation** → **actuarial sign-off** → immutable
+   publication → controlled GitOps deploy → monitoring. **Registered ≠ approved.**
+6. **Replay:** every quote persists a **quote manifest** (model/tariff/ruleset/commercial-adjustment
+   versions + facts + evidence refs + breakdown) → reconstruct any historical quote exactly.
+7. **LLM is assistive only** (ADR-003): extraction→structured facts (evidence-grounded, human-validated,
+   never confidence-alone), explanation narration, guideline copilot, data-quality flags, governance
+   docs — **never** the pricing function. Routed via the platform LLMOps path.
+8. **AI-Act:** a documented per-use-case classification + model-risk assessment (not a hardcoded tier);
+   EIOPA Aug-2025 governance obligations apply beyond high-risk and are met by this design.
+9. **Roadmap prioritises the end-to-end workflow over algorithms:** P0 engine+manifest · P1 tech/commercial
+   split · P2 LLM extraction+validation · P3 synthetic freq/sev GLMs · P4 registry+approval+publication ·
+   P5 monitoring/A-vs-E · P6 GBM champion/challenger.
+
+**Consequences.** Statistically-grounded, explainable, reproducible, governed pricing that stays defensible
+to an auditor; more governance surface (validation + sign-off gates, the manifest) — accepted. Synthetic
+data proves methodology (factor-recovery), **not** a validated real-world tariff — disclaimed. The pure
+`rate()` seam is preserved; every phase builds around it. Deferred: GBM-in-price (P6, gated), autonomous AI
+(ADR-003 parked), MDM entities (ADR-002), real external claims data (out of scope for a lab).
