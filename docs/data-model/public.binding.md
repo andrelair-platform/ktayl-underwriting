@@ -52,13 +52,18 @@ erDiagram
 }
 "public.quote" {
   json breakdown
+  bigint commercial_premium_minor
   timestamp_with_time_zone created_at
   varchar_128_ created_by
   varchar_3_ currency
+  json facts
   varchar_36_ id
   bigint premium_minor
+  bigint pure_premium_minor
   integer rate_table_version
   varchar_36_ submission_id FK
+  bigint taxes_minor
+  bigint technical_premium_minor
 }
 "public.submission" {
   varchar_64_ broker_ref

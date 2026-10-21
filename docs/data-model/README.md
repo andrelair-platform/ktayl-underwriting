@@ -9,7 +9,7 @@
 | [public.binding](public.binding.md)                   | 9       |         | BASE TABLE |
 | [public.counterparty](public.counterparty.md)         | 4       |         | BASE TABLE |
 | [public.decision](public.decision.md)                 | 7       |         | BASE TABLE |
-| [public.quote](public.quote.md)                       | 8       |         | BASE TABLE |
+| [public.quote](public.quote.md)                       | 13      |         | BASE TABLE |
 | [public.rate_table](public.rate_table.md)             | 4       |         | BASE TABLE |
 | [public.submission](public.submission.md)             | 10      |         | BASE TABLE |
 
@@ -69,13 +69,18 @@ erDiagram
 }
 "public.quote" {
   json breakdown
+  bigint commercial_premium_minor
   timestamp_with_time_zone created_at
   varchar_128_ created_by
   varchar_3_ currency
+  json facts
   varchar_36_ id
   bigint premium_minor
+  bigint pure_premium_minor
   integer rate_table_version
   varchar_36_ submission_id FK
+  bigint taxes_minor
+  bigint technical_premium_minor
 }
 "public.rate_table" {
   timestamp_with_time_zone effective_at
