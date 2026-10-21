@@ -76,8 +76,16 @@ def quote_submission(
     if rate_table is None:
         raise NoRateTableError()
 
-    breakdown = rate(_facts_of(submission), spec_of(rate_table))
+    facts = _facts_of(submission)
+    breakdown = rate(facts, spec_of(rate_table))
     breakdown_json = [asdict(item) for item in breakdown.line_items]
+    # The quote manifest (ADR-009 P1): the exact priced facts, so a quote is replayable.
+    facts_json = {
+        "tiv_eur": facts.tiv_eur,
+        "occupancy": facts.occupancy,
+        "flags": sorted(facts.flags),
+        "commercial_adjustment": str(facts.commercial_adjustment),
+    }
 
     quote = quotes.add(
         submission_id=submission.id,
@@ -86,6 +94,11 @@ def quote_submission(
         rate_table_version=breakdown.rate_table_version,
         breakdown=breakdown_json,
         created_by=actor,
+        pure_premium_minor=breakdown.pure_premium_minor,
+        technical_premium_minor=breakdown.technical_premium_minor,
+        commercial_premium_minor=breakdown.commercial_premium_minor,
+        taxes_minor=breakdown.taxes_minor,
+        facts=facts_json,
     )
 
     audit.append(

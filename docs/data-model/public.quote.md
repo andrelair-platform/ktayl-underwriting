@@ -2,16 +2,21 @@
 
 ## Columns
 
-| Name               | Type                     | Default | Nullable | Children                            | Parents                                   | Comment |
-| ------------------ | ------------------------ | ------- | -------- | ----------------------------------- | ----------------------------------------- | ------- |
-| breakdown          | json                     |         | false    |                                     |                                           |         |
-| created_at         | timestamp with time zone |         | false    |                                     |                                           |         |
-| created_by         | varchar(128)             |         | false    |                                     |                                           |         |
-| currency           | varchar(3)               |         | false    |                                     |                                           |         |
-| id                 | varchar(36)              |         | false    | [public.binding](public.binding.md) |                                           |         |
-| premium_minor      | bigint                   |         | false    |                                     |                                           |         |
-| rate_table_version | integer                  |         | false    |                                     |                                           |         |
-| submission_id      | varchar(36)              |         | false    |                                     | [public.submission](public.submission.md) |         |
+| Name                     | Type                     | Default | Nullable | Children                            | Parents                                   | Comment |
+| ------------------------ | ------------------------ | ------- | -------- | ----------------------------------- | ----------------------------------------- | ------- |
+| breakdown                | json                     |         | false    |                                     |                                           |         |
+| commercial_premium_minor | bigint                   |         | true     |                                     |                                           |         |
+| created_at               | timestamp with time zone |         | false    |                                     |                                           |         |
+| created_by               | varchar(128)             |         | false    |                                     |                                           |         |
+| currency                 | varchar(3)               |         | false    |                                     |                                           |         |
+| facts                    | json                     |         | true     |                                     |                                           |         |
+| id                       | varchar(36)              |         | false    | [public.binding](public.binding.md) |                                           |         |
+| premium_minor            | bigint                   |         | false    |                                     |                                           |         |
+| pure_premium_minor       | bigint                   |         | true     |                                     |                                           |         |
+| rate_table_version       | integer                  |         | false    |                                     |                                           |         |
+| submission_id            | varchar(36)              |         | false    |                                     | [public.submission](public.submission.md) |         |
+| taxes_minor              | bigint                   |         | true     |                                     |                                           |         |
+| technical_premium_minor  | bigint                   |         | true     |                                     |                                           |         |
 
 ## Constraints
 
@@ -37,13 +42,18 @@ erDiagram
 
 "public.quote" {
   json breakdown
+  bigint commercial_premium_minor
   timestamp_with_time_zone created_at
   varchar_128_ created_by
   varchar_3_ currency
+  json facts
   varchar_36_ id
   bigint premium_minor
+  bigint pure_premium_minor
   integer rate_table_version
   varchar_36_ submission_id FK
+  bigint taxes_minor
+  bigint technical_premium_minor
 }
 "public.binding" {
   timestamp_with_time_zone bound_at

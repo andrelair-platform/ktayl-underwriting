@@ -79,14 +79,27 @@ def test_quote_accept_returns_premium_and_breakdown(client: TestClient) -> None:
     resp = client.post(f"/v1/submissions/{sub_id}/quote")
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    # warehouse factor 1.25: 0.5‰ × €500,000 × 1.25 = €312.50 = 31_250 eurocents
-    assert body["premium_minor"] == 31_250
+    from decimal import ROUND_HALF_UP, Decimal
+
+    def _r(d: Decimal) -> int:
+        return int(d.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+    # ADR-009 P1: the current rate table is v2 (the loading stack). Loss cost (warehouse €500k):
+    # 0.5‰ × €500,000 × 1.25 = €312.50 = 31_250 eurocents.
+    assert body["rate_table_version"] == 2
     assert body["currency"] == "EUR"
-    assert body["rate_table_version"] == 1
     assert body["submission_id"] == sub_id
-    kinds = [li["kind"] for li in body["breakdown"]]
-    assert kinds == ["base", "factor"]
-    # breakdown reconciles to the premium
+    assert body["pure_premium_minor"] == 31_250
+    tech = Decimal(31_250) * Decimal("1.15") * Decimal("1.06") * Decimal("1.04")
+    assert body["technical_premium_minor"] == _r(tech)
+    assert body["commercial_premium_minor"] == _r(tech)  # neutral commercial adjustment
+    final = tech + Decimal(5000) + tech * Decimal("0.09")  # + €50 fee + 9% IPT
+    assert body["premium_minor"] == _r(final)
+    assert body["taxes_minor"] == body["premium_minor"] - body["commercial_premium_minor"]
+    # staged trail present + reconciles to the final premium
+    stages = {li["stage"] for li in body["breakdown"]}
+    assert {"loss_cost", "technical", "taxes"} <= stages
+    assert body["breakdown"][0]["kind"] == "base"
     assert body["breakdown"][-1]["running_subtotal_minor"] == body["premium_minor"]
 
 
@@ -156,9 +169,10 @@ def test_list_rate_tables(client: TestClient) -> None:
     resp = client.get("/v1/rate-tables")
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body) == 1
-    assert body[0]["version"] == 1
+    # ADR-009 P1 added v2 (the loading stack) → two immutable versions, newest first
+    assert [t["version"] for t in body] == [2, 1]
     assert "base_rate_permille" in body[0]["rules"]
+    assert "expense_loading" in body[0]["rules"]  # v2 carries the P1 loading params
 
 
 # --- GET /v1/submissions (inbox) -------------------------------------------

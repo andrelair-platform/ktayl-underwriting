@@ -44,9 +44,16 @@ class Quote(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     submission_id: Mapped[str] = mapped_column(String(36), ForeignKey("submission.id"), nullable=False, index=True)
-    premium_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)  # eurocents (minor units)
+    premium_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)  # final quoted premium, eurocents
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="EUR")
     rate_table_version: Mapped[int] = mapped_column(Integer, nullable=False)
     breakdown: Mapped[list] = mapped_column(JsonType, nullable=False)  # ordered list of line-item dicts
+    # ADR-009 P1 quote manifest — staged subtotals (eurocents) + the input facts, so a quote is
+    # actuarially legible AND replayable. Nullable: quotes written before P1 don't carry them.
+    pure_premium_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    technical_premium_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    commercial_premium_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    taxes_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    facts: Mapped[dict | None] = mapped_column(JsonType, nullable=True)  # the exact priced RatingFacts
     created_by: Mapped[str] = mapped_column(String(128), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)

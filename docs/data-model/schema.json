@@ -421,6 +421,11 @@
           "nullable": false
         },
         {
+          "name": "commercial_premium_minor",
+          "type": "bigint",
+          "nullable": true
+        },
+        {
           "name": "created_at",
           "type": "timestamp with time zone",
           "nullable": false
@@ -436,6 +441,11 @@
           "nullable": false
         },
         {
+          "name": "facts",
+          "type": "json",
+          "nullable": true
+        },
+        {
           "name": "id",
           "type": "varchar(36)",
           "nullable": false
@@ -446,6 +456,11 @@
           "nullable": false
         },
         {
+          "name": "pure_premium_minor",
+          "type": "bigint",
+          "nullable": true
+        },
+        {
           "name": "rate_table_version",
           "type": "integer",
           "nullable": false
@@ -454,6 +469,16 @@
           "name": "submission_id",
           "type": "varchar(36)",
           "nullable": false
+        },
+        {
+          "name": "taxes_minor",
+          "type": "bigint",
+          "nullable": true
+        },
+        {
+          "name": "technical_premium_minor",
+          "type": "bigint",
+          "nullable": true
         }
       ],
       "indexes": [
