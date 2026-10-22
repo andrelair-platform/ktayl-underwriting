@@ -40,6 +40,22 @@ V1_RULES: dict = {
     ],
 }
 
+# The v2 rate table (ADR-009 P1) = v1's loss-cost rules + the technical/commercial/tax loading stack.
+# All figures are simulation, credible-but-indicative (Pricing & Portfolio governance guideline):
+#   expense_loading 15% (acquisition+admin) · risk_margin 6% (cost of capital) · cat_provision 4%
+#   commercial adjustment authorised band ±15% ([0.85, 1.15]) · IPT 9% (indicative TCA) · €50 policy fee.
+# Immutable + versioned (ADR-004): v2 is a NEW row; current() returns it so new quotes price fully-loaded.
+V2_RULES: dict = {
+    **V1_RULES,
+    "expense_loading": "0.15",
+    "risk_margin": "0.06",
+    "cat_provision": "0.04",
+    "commercial_adjustment_min": "0.85",
+    "commercial_adjustment_max": "1.15",
+    "ipt_rate": "0.09",
+    "fixed_fees_minor": 5000,
+}
+
 # TIV (eurocents) above which the high_tiv_loading applies — €5,000,000. The band is **strict `>`**:
 # a risk at EXACTLY €5,000,000 is NOT loaded (the loading applies only above it). This is an
 # intentional boundary, matching the appetite TIV authority-band convention (accepted at the
@@ -92,6 +108,11 @@ class QuoteRepository(Protocol):
         rate_table_version: int,
         breakdown: list,
         created_by: str,
+        pure_premium_minor: int | None = None,
+        technical_premium_minor: int | None = None,
+        commercial_premium_minor: int | None = None,
+        taxes_minor: int | None = None,
+        facts: dict | None = None,
     ) -> Quote: ...
 
     def latest_for_submission(self, submission_id: str) -> Quote | None: ...
@@ -111,6 +132,11 @@ class SqlQuoteRepository:
         rate_table_version: int,
         breakdown: list,
         created_by: str,
+        pure_premium_minor: int | None = None,
+        technical_premium_minor: int | None = None,
+        commercial_premium_minor: int | None = None,
+        taxes_minor: int | None = None,
+        facts: dict | None = None,
     ) -> Quote:
         quote = Quote(
             submission_id=submission_id,
@@ -119,6 +145,11 @@ class SqlQuoteRepository:
             rate_table_version=rate_table_version,
             breakdown=breakdown,
             created_by=created_by,
+            pure_premium_minor=pure_premium_minor,
+            technical_premium_minor=technical_premium_minor,
+            commercial_premium_minor=commercial_premium_minor,
+            taxes_minor=taxes_minor,
+            facts=facts,
         )
         self._session.add(quote)
         self._session.flush()
@@ -146,5 +177,19 @@ def seed_v1(session: Session) -> RateTable:
     if existing is not None:
         return existing
     rate_table = repo.create_version(version=1, rules=V1_RULES)
+    session.commit()
+    return rate_table
+
+
+def seed_v2(session: Session) -> RateTable:
+    """Install rate table version 2 (ADR-009 P1 loading stack) if absent. Idempotent.
+
+    Requires v1 first (seed_v1). Once present, `current()` returns v2, so new quotes price with the
+    full technical/commercial/tax build-up. Never edits v1 (ADR-004 immutability)."""
+    repo = SqlRateTableRepository(session)
+    existing = repo.get_version(2)
+    if existing is not None:
+        return existing
+    rate_table = repo.create_version(version=2, rules=V2_RULES)
     session.commit()
     return rate_table

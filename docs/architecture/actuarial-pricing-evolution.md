@@ -10,6 +10,13 @@
 > Scope note: this is an **engineering design**, not a formal actuarial or regulatory sign-off. It is
 > deliberately actuarially *framed* so the real actuarial work (model selection, validation, approval)
 > has a correct home.
+>
+> **Implemented so far (2026-10-21): P0 + P1 live on dev** (story UW-04-S02). The pure `rate()` engine now
+> produces the **staged build-up** (loss cost → technical → commercial → taxes) with each `LineItem`
+> tagged by `stage`; a **v2 rate table** carries the loading stack (expense 15% · risk/capital 6% · CAT
+> 4% · commercial-adjustment band ±15% · IPT 9% · €50 fee, all simulation/indicative); the **quote
+> manifest** (staged subtotals + input facts) is persisted → a quote is legible AND replayable. Backward-
+> compatible (a v1 table prices exactly as before). P2–P6 below remain future work.
 
 ## 1. Problem & the one governing principle
 
@@ -222,8 +229,8 @@ models evolve without redesigning the app.
 
 | Pri | Capability | Why |
 |---|---|---|
-| **P0** | Deterministic engine + **full audit/quote manifest** | foundational correctness + replay |
-| **P1** | **Technical vs commercial** premium separation (+ taxes/fees) | actuarial clarity, pure-engine work, no ML |
+| **P0** | Deterministic engine + **full audit/quote manifest** | foundational correctness + replay — ✅ **done (dev, UW-04-S02)** |
+| **P1** | **Technical vs commercial** premium separation (+ taxes/fees) | actuarial clarity, pure-engine work, no ML — ✅ **done (dev, UW-04-S02)** |
 | **P2** | **LLM submission extraction + human validation** | immediate operational value; model-independent |
 | **P3** | Synthetic exposure/claims simulation + **freq/severity GLMs** | statistical pricing (factor-recovery proof) |
 | **P4** | **Model registry + approval workflow + controlled publication** | production governance (registered ≠ approved) |

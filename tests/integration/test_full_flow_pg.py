@@ -233,7 +233,7 @@ def test_alembic_at_head(session: Session) -> None:
     from sqlalchemy import text
 
     versions = list(session.execute(text("SELECT version_num FROM alembic_version")).scalars())
-    assert versions == ["0003_bind"], f"expected DB at head 0003_bind, got {versions}"
+    assert versions == ["0004_quote_manifest"], f"expected DB at head 0004_quote_manifest, got {versions}"
 
 
 def test_policy_number_unique_invariant(session: Session) -> None:

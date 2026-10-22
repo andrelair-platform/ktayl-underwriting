@@ -25,6 +25,7 @@ from app.decision import models as _decision_models  # noqa: F401
 from app.entity import models as _entity_models  # noqa: F401
 from app.rating import models as _rating_models  # noqa: F401
 from app.rating.repository import seed_v1 as seed_rate_table_v1
+from app.rating.repository import seed_v2 as seed_rate_table_v2
 from app.submission import models as _submission_models  # noqa: F401
 
 # Request logging to stdout. NOTE: `logging.basicConfig` alone is unreliable under uvicorn — uvicorn
@@ -48,10 +49,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # off in L1 tests, which build the schema in-memory instead of via Alembic.
     if get_settings().run_db_migrations_on_startup:
         bootstrap_database()
-    # Seed appetite ruleset v1 + rate table v1 if none exist (idempotent), against the migrated schema.
+    # Seed appetite ruleset v1 + rate table v1/v2 if absent (idempotent), against the migrated schema.
+    # v2 carries the ADR-009 P1 loading stack; current() returns it so new quotes price fully-loaded.
     with SessionLocal() as session:
         seed_v1(session)
         seed_rate_table_v1(session)
+        seed_rate_table_v2(session)
     yield
 
 
