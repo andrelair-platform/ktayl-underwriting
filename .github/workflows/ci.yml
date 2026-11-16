@@ -18,13 +18,10 @@ permissions:
   contents: read
 
 env:
-  REGISTRY:   harbor.10.0.0.200.nip.io
-  IMAGE_NAME: library/ktayl-underwriting
-  GHCR_IMAGE: ghcr.io/andrelair-platform/ktayl-underwriting   # prod images (immutable SHA, durable)
+  GHCR_IMAGE: ghcr.io/andrelair-platform/ktayl-underwriting   # immutable SHA, durable
   # The Next.js workbench frontend is a SECOND image built from the same commit. Backend + frontend
   # share the SAME tag (the commit SHA) in DIFFERENT repos → Kargo's git-Warehouse model pins both to
   # commitFrom(...)[0:7], so a promotion always moves a consistent backend+frontend pair.
-  IMAGE_NAME_FRONTEND: library/ktayl-underwriting-frontend
   GHCR_IMAGE_FRONTEND: ghcr.io/andrelair-platform/ktayl-underwriting-frontend
 
 jobs:
@@ -228,44 +225,12 @@ jobs:
           BRANCH=${GITHUB_REF_NAME}
           if [ "$BRANCH" = "main" ]; then TAG="${SHA}"; else TAG="${BRANCH}-${SHA}"; fi
           echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
-          # Hybrid registry: dev images -> Harbor; prod (main) images ALSO -> ghcr.io
-          # (durable, immutable SHA — what Kargo's Warehouse will watch).
-          HARBOR_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
-          HARBOR_REF_FE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${TAG}"
-          if [ "$BRANCH" = "main" ]; then
-            TAGS="${HARBOR_REF}"$'\n'"${{ env.GHCR_IMAGE }}:${TAG}"
-            TAGS_FE="${HARBOR_REF_FE}"$'\n'"${{ env.GHCR_IMAGE_FRONTEND }}:${TAG}"
-          else
-            TAGS="${HARBOR_REF}"
-            TAGS_FE="${HARBOR_REF_FE}"
-          fi
-          { echo "tags<<EOF"; echo "${TAGS}"; echo "EOF"; } >> "$GITHUB_OUTPUT"
-          { echo "tags_frontend<<EOF"; echo "${TAGS_FE}"; echo "EOF"; } >> "$GITHUB_OUTPUT"
+          # ghcr only (Harbor decommissioned 2026-11-16); dev + prod both push ghcr
+          # (durable, immutable SHA — what Kargo's git-Warehouse watches).
+          { echo "tags<<EOF"; echo "${{ env.GHCR_IMAGE }}:${TAG}"; echo "EOF"; } >> "$GITHUB_OUTPUT"
+          { echo "tags_frontend<<EOF"; echo "${{ env.GHCR_IMAGE_FRONTEND }}:${TAG}"; echo "EOF"; } >> "$GITHUB_OUTPUT"
 
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v4.1.3
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret:    ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-
-      - name: Trust minicloud CA
-        run: |
-          sudo mkdir -p /etc/docker/certs.d/${{ env.REGISTRY }}
-          echo "${{ secrets.MINICLOUD_CA_CERT }}" \
-            | sudo tee /etc/docker/certs.d/${{ env.REGISTRY }}/ca.crt
-          echo "${{ secrets.MINICLOUD_CA_CERT }}" \
-            | sudo tee /usr/local/share/ca-certificates/minicloud-ca.crt
-          sudo update-ca-certificates
-
-      - uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.HARBOR_USER }}
-          password: ${{ secrets.HARBOR_PASSWORD }}
-
-      - name: Login to GHCR (prod images)
-        if: github.ref_name == 'main'
+      - name: Login to GHCR
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -273,10 +238,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/setup-buildx-action@v4
-        with:
-          buildkitd-config-inline: |
-            [registry."harbor.10.0.0.200.nip.io"]
-              insecure = true
 
       - name: Build and push
         id: build
@@ -293,7 +254,7 @@ jobs:
       - name: Scan image (Trivy — CRITICAL only)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref:      ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          image-ref:      ${{ env.GHCR_IMAGE }}@${{ steps.build.outputs.digest }}
           format:         table
           exit-code:      '1'
           severity:       CRITICAL
@@ -319,7 +280,7 @@ jobs:
       - name: Scan frontend image (Trivy — CRITICAL only)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref:      ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}@${{ steps.build_frontend.outputs.digest }}
+          image-ref:      ${{ env.GHCR_IMAGE_FRONTEND }}@${{ steps.build_frontend.outputs.digest }}
           format:         table
           exit-code:      '1'
           severity:       CRITICAL
