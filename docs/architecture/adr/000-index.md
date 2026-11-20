@@ -14,6 +14,7 @@
 | [007](#adr-007) | Backend = Python + FastAPI; Frontend = Next.js + React | Proposed | SA/TL |
 | [008](#adr-008) | Underwriter workbench: Next.js **BFF**, monorepo, git-Warehouse | **Accepted** | SA/TL |
 | [009](#adr-009) | Actuarial pricing evolution: loss-model / approved-tariff / engine separation; GLM-first; LLM out of the price | Proposed | SA/TL |
+| [010](#adr-010) | **Deterministic actuarial completeness ("P1.5"): experience rating + deductible/limit credits** — extend the pure `rate()` loss-cost stage with credibility-blended experience modification (the account's own losses) + deductible-credit + limit/ILF factors, all **data-driven (rate-table v3) + neutral-by-default** (v1/v2 unchanged). Completes *commercial* pricing **before** the GLM work (P3); no ML. | **Accepted** | SA/TL |
 
 ---
 
@@ -164,3 +165,51 @@ to an auditor; more governance surface (validation + sign-off gates, the manifes
 data proves methodology (factor-recovery), **not** a validated real-world tariff — disclaimed. The pure
 `rate()` seam is preserved; every phase builds around it. Deferred: GBM-in-price (P6, gated), autonomous AI
 (ADR-003 parked), MDM entities (ADR-002), real external claims data (out of scope for a lab).
+
+## ADR-010 — Deterministic actuarial completeness: experience rating + deductible/limit credits {#adr-010}
+**Status: ACCEPTED · 2026-11-20 — owner-approved.** The "P1.5" the ADR-009 roadmap skipped: it jumps P1
+(technical/commercial separation) → P2 (LLM extraction) → P3 (GLMs), but the **deterministic** actuarial
+components that make *commercial* pricing proper come **before** statistical pricing.
+
+**Context.** The ADR-009 P1 engine prices a real staged build-up (loss cost → technical → commercial → taxes),
+but it is **exposure-only**: `base_rate‰ × TIV × occupancy × risk-flags`. Two components define *commercial /
+industrial* pricing and are missing:
+1. **Experience rating** — a large account is priced on **its own loss history**, credibility-blended with the
+   manual (book) rate. Absent today: the submission has no loss-history fields, and there is no credibility math.
+2. **Deductible & limit credits** — every commercial policy carries a **deductible** (the insured retains a
+   layer → lower loss cost → a *credit*) and a **limit / ILF** (increased-limit factor). Absent today.
+These are **deterministic + data-driven**, not ML — so they belong before the P3 GLM work and follow the same
+pattern as the P1 loadings (configured in the versioned rate table, neutral by default).
+
+**Decision.** Extend the **pure `rate()` seam** (never rewrite it — ADR-009) by adding three steps to the
+**loss-cost stage**, after occupancy + risk adjustments, each a line item in the existing explainable trail:
+1. **Deductible credit** — `× deductible_factor` from a configured `deductible_credits` band table (factor ≤ 1;
+   a bigger deductible → bigger credit). Neutral (×1) when no deductible.
+2. **Limit / ILF factor** — `× limit_factor` from a configured `limit_factors` (ILF) band table; neutral (×1)
+   at full value (no limit, or limit ≥ TIV).
+3. **Experience modifier** — `× experience_mod`, where
+   `experience_mod = clamp( Z × (actual_LR / expected_LR) + (1 − Z), swing_min, swing_max )`,
+   `actual_LR = prior_losses / prior_premium`, and **credibility** `Z = min(1, √(prior_premium /
+   full_credibility_premium))` (the classic square-root-of-premium partial-credibility rule). Neutral (×1,
+   Z=0) when there's no prior-premium/loss history. Applies to the manual premium (after deductible+limit).
+
+**Data-driven (ADR-004).** All parameters live in a new **rate-table v3** JSON (`expected_loss_ratio`,
+`full_credibility_premium_minor`, `experience_swing_min/max`, `deductible_credits[]`, `limit_factors[]`) — a new
+immutable version; **v1/v2 price exactly as before** (the new engine params default neutral → no line items →
+every historical quote is byte-identical). New **nullable** submission fields (`deductible_eur`, `limit_eur`,
+`prior_premium_eur`, `prior_losses_eur`) feed `RatingFacts`; existing submissions (null) price unchanged.
+
+**Explainability + replay preserved.** Each new step emits a `LineItem` in the loss-cost stage; the quote
+manifest stores the new facts → any quote stays replayable (ADR-009 §7). The underwriter workbench renders the
+new line items with no frontend change (it iterates the breakdown).
+
+**Rejected.** (a) *GLM/model-driven relativities for this* — that's P3, needs data + a model registry; these are
+deterministic tariff math, shippable now. (b) *A separate pricing module/service* — rating lives in this Python
+service on a clean pure seam (ADR-001/007); a new boundary adds the microservice tax for no gain. (c) *Hardcoding
+the factors* — breaks ADR-004 (rates must be versioned/immutable/auditable); they go in the rate table.
+
+**Consequences.** `ktayl-underwriting` can now price a commercial risk the way an industrial insurer actually
+does — on the account's own experience + its deductible/limit structure — with the same auditable, reconciling,
+data-driven trail. Scope: new engine steps + v3 rate table + 4 nullable submission columns (a migration) + the
+L0–L4 tests (the build-up is unit-locked) + the live QA gate before prod. No ML, no new service, no change to
+v1/v2 pricing.

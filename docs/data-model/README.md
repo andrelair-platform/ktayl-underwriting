@@ -11,7 +11,7 @@
 | [public.decision](public.decision.md)                 | 7       |         | BASE TABLE |
 | [public.quote](public.quote.md)                       | 13      |         | BASE TABLE |
 | [public.rate_table](public.rate_table.md)             | 4       |         | BASE TABLE |
-| [public.submission](public.submission.md)             | 10      |         | BASE TABLE |
+| [public.submission](public.submission.md)             | 14      |         | BASE TABLE |
 
 ## Relations
 
@@ -93,10 +93,14 @@ erDiagram
   varchar_36_ counterparty_id FK
   varchar_2_ country
   timestamp_with_time_zone created_at
+  bigint deductible_eur
   varchar_36_ id
+  bigint limit_eur
   varchar_64_ line_of_business
   varchar_64_ occupancy
   varchar_16_ postcode
+  bigint prior_losses_eur
+  bigint prior_premium_eur
   varchar_255_ requested_cover
   bigint tiv_eur
 }

@@ -26,6 +26,7 @@ from app.entity import models as _entity_models  # noqa: F401
 from app.rating import models as _rating_models  # noqa: F401
 from app.rating.repository import seed_v1 as seed_rate_table_v1
 from app.rating.repository import seed_v2 as seed_rate_table_v2
+from app.rating.repository import seed_v3 as seed_rate_table_v3
 from app.submission import models as _submission_models  # noqa: F401
 
 # Request logging to stdout. NOTE: `logging.basicConfig` alone is unreliable under uvicorn — uvicorn
@@ -55,6 +56,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         seed_v1(session)
         seed_rate_table_v1(session)
         seed_rate_table_v2(session)
+        seed_rate_table_v3(session)  # ADR-010 — experience rating + deductible/limit credits
     yield
 
 

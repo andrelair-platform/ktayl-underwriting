@@ -94,4 +94,9 @@ export interface SubmissionCreate {
   postcode: string;
   requested_cover: string;
   broker_ref?: string | null;
+  // ADR-010 — optional deductible/limit structure + loss history for proper commercial pricing (eurocents).
+  deductible_eur?: number | null;
+  limit_eur?: number | null;
+  prior_premium_eur?: number | null;
+  prior_losses_eur?: number | null;
 }

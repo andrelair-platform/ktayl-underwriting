@@ -616,9 +616,19 @@
           "nullable": false
         },
         {
+          "name": "deductible_eur",
+          "type": "bigint",
+          "nullable": true
+        },
+        {
           "name": "id",
           "type": "varchar(36)",
           "nullable": false
+        },
+        {
+          "name": "limit_eur",
+          "type": "bigint",
+          "nullable": true
         },
         {
           "name": "line_of_business",
@@ -634,6 +644,16 @@
           "name": "postcode",
           "type": "varchar(16)",
           "nullable": false
+        },
+        {
+          "name": "prior_losses_eur",
+          "type": "bigint",
+          "nullable": true
+        },
+        {
+          "name": "prior_premium_eur",
+          "type": "bigint",
+          "nullable": true
         },
         {
           "name": "requested_cover",

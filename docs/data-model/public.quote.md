@@ -71,10 +71,14 @@ erDiagram
   varchar_36_ counterparty_id FK
   varchar_2_ country
   timestamp_with_time_zone created_at
+  bigint deductible_eur
   varchar_36_ id
+  bigint limit_eur
   varchar_64_ line_of_business
   varchar_64_ occupancy
   varchar_16_ postcode
+  bigint prior_losses_eur
+  bigint prior_premium_eur
   varchar_255_ requested_cover
   bigint tiv_eur
 }

@@ -129,6 +129,43 @@ export default function NewSubmissionPage() {
           </div>
         </fieldset>
 
+        {/* ADR-010 — optional, drives experience rating + deductible/limit credits in the quote */}
+        <fieldset className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <legend className="mb-1 text-sm font-semibold text-slate-700">
+              Pricing structure <span className="font-normal text-slate-400">(optional)</span>
+            </legend>
+            <p className="mb-2 text-xs text-slate-500">
+              A deductible/limit and the account&apos;s own loss history refine the premium (deductible credit,
+              increased-limit factor, credibility-blended experience rating). Leave blank to price on exposure only.
+            </p>
+          </div>
+          <div>
+            <label className={labelCls} htmlFor="deductible_eur">
+              Deductible (EUR)
+            </label>
+            <input id="deductible_eur" name="deductible_eur" type="number" min="0" step="0.01" placeholder="50000" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls} htmlFor="limit_eur">
+              Policy limit (EUR)
+            </label>
+            <input id="limit_eur" name="limit_eur" type="number" min="0" step="0.01" placeholder="full value" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls} htmlFor="prior_premium_eur">
+              Prior premium — experience period (EUR)
+            </label>
+            <input id="prior_premium_eur" name="prior_premium_eur" type="number" min="0" step="0.01" placeholder="250000" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls} htmlFor="prior_losses_eur">
+              Prior losses — experience period (EUR)
+            </label>
+            <input id="prior_losses_eur" name="prior_losses_eur" type="number" min="0" step="0.01" placeholder="90000" className={inputCls} />
+          </div>
+        </fieldset>
+
         {state?.error && (
           <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{state.error}</p>
         )}
