@@ -17,6 +17,17 @@
 > 4% · commercial-adjustment band ±15% · IPT 9% · €50 fee, all simulation/indicative); the **quote
 > manifest** (staged subtotals + input facts) is persisted → a quote is legible AND replayable. Backward-
 > compatible (a v1 table prices exactly as before). P2–P6 below remain future work.
+>
+> **ADR-010 (2026-11-20): loss-cost completeness — live on dev + prod.** The loss-cost stage now carries
+> the three structural modifiers a commercial property quote needs, as data-driven `LineItem`s on a **v3
+> rate table** (still the same pure engine, same trail): a **deductible credit** (banded factor by
+> retention), an **increased-limit / ILF factor** (a limited layer prices below full value), and a
+> **credibility-blended experience modifier** (square-root rule `Z = √(prior_premium / full_credibility)`;
+> `mod = clamp(Z·(actual_LR/expected_LR) + (1−Z), swing_min, swing_max)`). All three default to neutral
+> (no deductible/limit/loss-history → identical to the plain v2 price), so it is fully backward-compatible.
+> This is the **deterministic precursor to P3's GLM**: real account experience now moves the price through
+> a transparent, bounded, auditable formula — before a trained loss model ever enters. See
+> **[ADR-010](./adr/000-index.md#adr-010)**.
 
 ## 1. Problem & the one governing principle
 
@@ -103,6 +114,9 @@ EXPECTED LOSS COST  (the loss model's output — NOT hand-set)
       severity  GLM: Gamma/log-normal, log link
       (corporate property: model ATTRITIONAL, LARGE and CAT losses separately —
        one GLM does not capture tail/CAT behaviour)
+    × deductible credit        (banded by retention)            ← ADR-010, LIVE
+    × increased-limit factor   (limited layer < full value)     ← ADR-010, LIVE
+    × experience modifier      (credibility-blended, Z=√(…))    ← ADR-010, LIVE
 = PURE PREMIUM                           "expected insured loss cost"
     + expense loading                    (acquisition + admin)
     + risk margin / cost-of-capital      (volatility, Solvency-II flavour)
@@ -231,6 +245,7 @@ models evolve without redesigning the app.
 |---|---|---|
 | **P0** | Deterministic engine + **full audit/quote manifest** | foundational correctness + replay — ✅ **done (dev, UW-04-S02)** |
 | **P1** | **Technical vs commercial** premium separation (+ taxes/fees) | actuarial clarity, pure-engine work, no ML — ✅ **done (dev, UW-04-S02)** |
+| **P1b** | **Loss-cost completeness**: deductible credit · ILF · credibility-blended experience rating | real account experience moves the price, deterministically — ✅ **done (dev + prod, ADR-010)** |
 | **P2** | **LLM submission extraction + human validation** | immediate operational value; model-independent |
 | **P3** | Synthetic exposure/claims simulation + **freq/severity GLMs** | statistical pricing (factor-recovery proof) |
 | **P4** | **Model registry + approval workflow + controlled publication** | production governance (registered ≠ approved) |
@@ -249,6 +264,6 @@ models evolve without redesigning the app.
 - **The pure `rate()` seam is preserved** throughout — every phase adds around it; none rewrites it.
 
 ## Links
-- Decision record: [ADR-009](./adr/000-index.md#adr-009) · supports ADR-003, ADR-004, ADR-007.
+- Decision records: [ADR-009](./adr/000-index.md#adr-009) (staged build-up) · [ADR-010](./adr/000-index.md#adr-010) (loss-cost completeness) · supports ADR-003, ADR-004, ADR-007.
 - `solution-architecture.md` · `nfr-register.md` (EXP/AUD NFRs) · `threat-model.md` (T2 mispricing).
 - Platform standards referenced, not restated: `llmops.md`, `ai-act-gate`, `reliability-and-gamedays.md`.
