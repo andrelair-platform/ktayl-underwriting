@@ -115,8 +115,7 @@ class RateTableSpec:
             experience_swing_min=dec("experience_swing_min", "0.5"),
             experience_swing_max=dec("experience_swing_max", "2"),
             deductible_credits=tuple(
-                (int(b["min_deductible_minor"]), Decimal(str(b["factor"])))
-                for b in rules.get("deductible_credits", [])
+                (int(b["min_deductible_minor"]), Decimal(str(b["factor"]))) for b in rules.get("deductible_credits", [])
             ),
             limit_factors=tuple(
                 (int(b["max_limit_minor"]), Decimal(str(b["factor"]))) for b in rules.get("limit_factors", [])
@@ -281,9 +280,7 @@ def rate(facts: RatingFacts, rate_table: RateTableSpec) -> QuoteBreakdown:
     if exp_mod != _ONE:  # the account's own loss experience, credibility-blended with the book rate
         kind = "discount" if exp_mod < _ONE else "loading"
         subtotal = subtotal * exp_mod
-        items.append(
-            LineItem("experience_modifier", kind, f"×{exp_mod}", _to_minor(subtotal), stage="loss_cost")
-        )
+        items.append(LineItem("experience_modifier", kind, f"×{exp_mod}", _to_minor(subtotal), stage="loss_cost"))
 
     pure_premium_minor = _to_minor(subtotal)
 
