@@ -58,6 +58,13 @@ export async function createSubmissionAction(
   formData: FormData,
 ): Promise<ActionResult> {
   const tivEur = Number(formData.get("tiv_eur"));
+  // ADR-010 — an optional euros input → eurocents, or null when blank (prices neutral).
+  const optMinor = (key: string): number | null => {
+    const raw = String(formData.get(key) ?? "").trim();
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null;
+  };
   const payload: SubmissionCreate = {
     counterparty: {
       name: String(formData.get("counterparty_name") ?? "").trim(),
@@ -70,6 +77,10 @@ export async function createSubmissionAction(
     postcode: String(formData.get("postcode") ?? "").trim(),
     requested_cover: String(formData.get("requested_cover") ?? "").trim(),
     broker_ref: (String(formData.get("broker_ref") ?? "").trim() || null) as string | null,
+    deductible_eur: optMinor("deductible_eur"),
+    limit_eur: optMinor("limit_eur"),
+    prior_premium_eur: optMinor("prior_premium_eur"),
+    prior_losses_eur: optMinor("prior_losses_eur"),
   };
 
   let createdId: string;

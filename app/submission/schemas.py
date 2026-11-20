@@ -24,6 +24,11 @@ class SubmissionCreate(BaseModel):
     postcode: str = Field(min_length=1, max_length=16)
     requested_cover: str = Field(min_length=1, max_length=255)
     broker_ref: str | None = Field(default=None, max_length=64)
+    # ADR-010 — optional deductible/limit structure + loss history for proper commercial pricing (eurocents).
+    deductible_eur: int | None = Field(default=None, ge=0, description="Insured retention (eurocents)")
+    limit_eur: int | None = Field(default=None, gt=0, description="Policy limit (eurocents); omit = full value")
+    prior_premium_eur: int | None = Field(default=None, gt=0, description="Experience-period earned premium")
+    prior_losses_eur: int | None = Field(default=None, ge=0, description="Experience-period incurred losses")
 
 
 class SubmissionRead(BaseModel):
@@ -38,6 +43,10 @@ class SubmissionRead(BaseModel):
     postcode: str
     requested_cover: str
     broker_ref: str | None
+    deductible_eur: int | None = None
+    limit_eur: int | None = None
+    prior_premium_eur: int | None = None
+    prior_losses_eur: int | None = None
     created_at: datetime
 
 

@@ -46,6 +46,10 @@ def create_submission(
         postcode=payload.postcode,
         requested_cover=payload.requested_cover,
         broker_ref=payload.broker_ref,
+        deductible_eur=payload.deductible_eur,  # ADR-010 (optional)
+        limit_eur=payload.limit_eur,
+        prior_premium_eur=payload.prior_premium_eur,
+        prior_losses_eur=payload.prior_losses_eur,
     )
     session.add(submission)
     session.flush()

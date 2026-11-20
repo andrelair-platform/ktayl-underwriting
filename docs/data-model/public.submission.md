@@ -2,18 +2,22 @@
 
 ## Columns
 
-| Name             | Type                     | Default | Nullable | Children                                                                                                                                              | Parents                                       | Comment |
-| ---------------- | ------------------------ | ------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------- |
-| broker_ref       | varchar(64)              |         | true     |                                                                                                                                                       |                                               |         |
-| counterparty_id  | varchar(36)              |         | false    |                                                                                                                                                       | [public.counterparty](public.counterparty.md) |         |
-| country          | varchar(2)               |         | false    |                                                                                                                                                       |                                               |         |
-| created_at       | timestamp with time zone |         | false    |                                                                                                                                                       |                                               |         |
-| id               | varchar(36)              |         | false    | [public.audit_entry](public.audit_entry.md) [public.binding](public.binding.md) [public.decision](public.decision.md) [public.quote](public.quote.md) |                                               |         |
-| line_of_business | varchar(64)              |         | false    |                                                                                                                                                       |                                               |         |
-| occupancy        | varchar(64)              |         | false    |                                                                                                                                                       |                                               |         |
-| postcode         | varchar(16)              |         | false    |                                                                                                                                                       |                                               |         |
-| requested_cover  | varchar(255)             |         | false    |                                                                                                                                                       |                                               |         |
-| tiv_eur          | bigint                   |         | false    |                                                                                                                                                       |                                               |         |
+| Name              | Type                     | Default | Nullable | Children                                                                                                                                              | Parents                                       | Comment |
+| ----------------- | ------------------------ | ------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------- |
+| broker_ref        | varchar(64)              |         | true     |                                                                                                                                                       |                                               |         |
+| counterparty_id   | varchar(36)              |         | false    |                                                                                                                                                       | [public.counterparty](public.counterparty.md) |         |
+| country           | varchar(2)               |         | false    |                                                                                                                                                       |                                               |         |
+| created_at        | timestamp with time zone |         | false    |                                                                                                                                                       |                                               |         |
+| deductible_eur    | bigint                   |         | true     |                                                                                                                                                       |                                               |         |
+| id                | varchar(36)              |         | false    | [public.audit_entry](public.audit_entry.md) [public.binding](public.binding.md) [public.decision](public.decision.md) [public.quote](public.quote.md) |                                               |         |
+| limit_eur         | bigint                   |         | true     |                                                                                                                                                       |                                               |         |
+| line_of_business  | varchar(64)              |         | false    |                                                                                                                                                       |                                               |         |
+| occupancy         | varchar(64)              |         | false    |                                                                                                                                                       |                                               |         |
+| postcode          | varchar(16)              |         | false    |                                                                                                                                                       |                                               |         |
+| prior_losses_eur  | bigint                   |         | true     |                                                                                                                                                       |                                               |         |
+| prior_premium_eur | bigint                   |         | true     |                                                                                                                                                       |                                               |         |
+| requested_cover   | varchar(255)             |         | false    |                                                                                                                                                       |                                               |         |
+| tiv_eur           | bigint                   |         | false    |                                                                                                                                                       |                                               |         |
 
 ## Constraints
 
@@ -44,10 +48,14 @@ erDiagram
   varchar_36_ counterparty_id FK
   varchar_2_ country
   timestamp_with_time_zone created_at
+  bigint deductible_eur
   varchar_36_ id
+  bigint limit_eur
   varchar_64_ line_of_business
   varchar_64_ occupancy
   varchar_16_ postcode
+  bigint prior_losses_eur
+  bigint prior_premium_eur
   varchar_255_ requested_cover
   bigint tiv_eur
 }

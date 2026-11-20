@@ -84,9 +84,10 @@ def test_quote_accept_returns_premium_and_breakdown(client: TestClient) -> None:
     def _r(d: Decimal) -> int:
         return int(d.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
-    # ADR-009 P1: the current rate table is v2 (the loading stack). Loss cost (warehouse €500k):
-    # 0.5‰ × €500,000 × 1.25 = €312.50 = 31_250 eurocents.
-    assert body["rate_table_version"] == 2
+    # ADR-010: the current rate table is v3 (experience + deductible/limit). A plain submission (no
+    # deductible/limit/loss-history) prices identically to v2 — the new steps are neutral. Loss cost
+    # (warehouse €500k): 0.5‰ × €500,000 × 1.25 = €312.50 = 31_250 eurocents.
+    assert body["rate_table_version"] == 3
     assert body["currency"] == "EUR"
     assert body["submission_id"] == sub_id
     assert body["pure_premium_minor"] == 31_250
@@ -169,8 +170,8 @@ def test_list_rate_tables(client: TestClient) -> None:
     resp = client.get("/v1/rate-tables")
     assert resp.status_code == 200
     body = resp.json()
-    # ADR-009 P1 added v2 (the loading stack) → two immutable versions, newest first
-    assert [t["version"] for t in body] == [2, 1]
+    # ADR-009 P1 added v2 (loading stack), ADR-010 added v3 (experience + deductible/limit) → newest first
+    assert [t["version"] for t in body] == [3, 2, 1]
     assert "base_rate_permille" in body[0]["rules"]
     assert "expense_loading" in body[0]["rules"]  # v2 carries the P1 loading params
 

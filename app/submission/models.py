@@ -34,4 +34,10 @@ class Submission(Base):
     postcode: Mapped[str] = mapped_column(String(16), nullable=False)
     requested_cover: Mapped[str] = mapped_column(String(255), nullable=False)
     broker_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # ADR-010 — deductible/limit structure + loss history for proper commercial pricing (all nullable →
+    # existing submissions price unchanged). Money in eurocents (minor units), per the platform convention.
+    deductible_eur: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # the insured's retention
+    limit_eur: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # policy limit; null = full value
+    prior_premium_eur: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # experience-period premium
+    prior_losses_eur: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # experience-period losses
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)

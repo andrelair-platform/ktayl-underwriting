@@ -38,13 +38,22 @@ class DeclinedRiskError(Exception):
 
 
 def _facts_of(submission: Submission) -> RatingFacts:
-    """Derive the engine facts (incl. gate flags) from existing submission fields only."""
+    """Derive the engine facts (incl. gate flags) from the submission. ADR-010 adds the deductible/limit
+    structure + loss history (all optional → 0 when absent, which prices neutral)."""
     flags: set[str] = set()
     if submission.tiv_eur > HIGH_TIV_THRESHOLD_EUR:
         flags.add("high_tiv")
     if "sprinkler" in submission.requested_cover.lower():
         flags.add("sprinklered")
-    return RatingFacts(tiv_eur=submission.tiv_eur, occupancy=submission.occupancy, flags=frozenset(flags))
+    return RatingFacts(
+        tiv_eur=submission.tiv_eur,
+        occupancy=submission.occupancy,
+        flags=frozenset(flags),
+        deductible_eur=submission.deductible_eur or 0,
+        limit_eur=submission.limit_eur or 0,
+        prior_premium_eur=submission.prior_premium_eur or 0,
+        prior_losses_eur=submission.prior_losses_eur or 0,
+    )
 
 
 def quote_submission(
@@ -79,12 +88,16 @@ def quote_submission(
     facts = _facts_of(submission)
     breakdown = rate(facts, spec_of(rate_table))
     breakdown_json = [asdict(item) for item in breakdown.line_items]
-    # The quote manifest (ADR-009 P1): the exact priced facts, so a quote is replayable.
+    # The quote manifest (ADR-009 P1 + ADR-010): the exact priced facts, so a quote is replayable.
     facts_json = {
         "tiv_eur": facts.tiv_eur,
         "occupancy": facts.occupancy,
         "flags": sorted(facts.flags),
         "commercial_adjustment": str(facts.commercial_adjustment),
+        "deductible_eur": facts.deductible_eur,  # ADR-010
+        "limit_eur": facts.limit_eur,
+        "prior_premium_eur": facts.prior_premium_eur,
+        "prior_losses_eur": facts.prior_losses_eur,
     }
 
     quote = quotes.add(

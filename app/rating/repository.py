@@ -56,6 +56,32 @@ V2_RULES: dict = {
     "fixed_fees_minor": 5000,
 }
 
+# The v3 rate table (ADR-010) = v2 + the deterministic actuarial completeness: experience rating + deductible
+# credits + limit/ILF factors. Simulation, credible-but-indicative (Pricing & Portfolio governance guideline):
+#   experience: benchmark LR 60% · √-rule full-credibility at €500k earned premium · swing band [0.75, 1.40]
+#   deductible credits: ≥€10k −2.5% · ≥€50k −5% · ≥€250k −10% · ≥€1M −17.5% (retained layer → lower loss cost)
+#   ILF: ≤€1M 0.70 · ≤€5M 0.85 · ≤€20M 0.95 · ≤€100M 1.0 (a limited layer prices below full value)
+# Immutable + versioned (ADR-004): v3 is a NEW row; current() returns it so new quotes price fully-complete.
+V3_RULES: dict = {
+    **V2_RULES,
+    "expected_loss_ratio": "0.60",
+    "full_credibility_premium_minor": 50000000,  # €500,000 earned premium → credibility Z = 1
+    "experience_swing_min": "0.75",
+    "experience_swing_max": "1.40",
+    "deductible_credits": [
+        {"min_deductible_minor": 1000000, "factor": "0.975"},  # ≥ €10k retention
+        {"min_deductible_minor": 5000000, "factor": "0.95"},  # ≥ €50k
+        {"min_deductible_minor": 25000000, "factor": "0.90"},  # ≥ €250k
+        {"min_deductible_minor": 100000000, "factor": "0.825"},  # ≥ €1M
+    ],
+    "limit_factors": [
+        {"max_limit_minor": 100000000, "factor": "0.70"},  # ≤ €1M limit
+        {"max_limit_minor": 500000000, "factor": "0.85"},  # ≤ €5M
+        {"max_limit_minor": 2000000000, "factor": "0.95"},  # ≤ €20M
+        {"max_limit_minor": 10000000000, "factor": "1.0"},  # ≤ €100M (≈ full value)
+    ],
+}
+
 # TIV (eurocents) above which the high_tiv_loading applies — €5,000,000. The band is **strict `>`**:
 # a risk at EXACTLY €5,000,000 is NOT loaded (the loading applies only above it). This is an
 # intentional boundary, matching the appetite TIV authority-band convention (accepted at the
@@ -191,5 +217,18 @@ def seed_v2(session: Session) -> RateTable:
     if existing is not None:
         return existing
     rate_table = repo.create_version(version=2, rules=V2_RULES)
+    session.commit()
+    return rate_table
+
+
+def seed_v3(session: Session) -> RateTable:
+    """Install rate table version 3 (ADR-010 experience rating + deductible/limit credits) if absent.
+    Idempotent. Requires v2. Once present, `current()` returns v3, so new quotes price with the complete
+    deterministic build-up. Never edits v1/v2 (ADR-004 immutability)."""
+    repo = SqlRateTableRepository(session)
+    existing = repo.get_version(3)
+    if existing is not None:
+        return existing
+    rate_table = repo.create_version(version=3, rules=V3_RULES)
     session.commit()
     return rate_table
