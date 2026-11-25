@@ -126,7 +126,7 @@ class SqlRateTableRepository:
 class QuoteRepository(Protocol):
     """Persist quotes + read the latest per submission."""
 
-    def add(
+    def add(  # noqa: PLR0913 -- quote-row column signature (the args ARE the row fields)
         self,
         submission_id: str,
         premium_minor: int,
@@ -150,7 +150,7 @@ class SqlQuoteRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def add(
+    def add(  # noqa: PLR0913 -- quote-row column signature (the args ARE the row fields)
         self,
         submission_id: str,
         premium_minor: int,

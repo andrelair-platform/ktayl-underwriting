@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException, Request
 
-import app.api.auth as auth
+from app.api import auth
 from app.api.auth import (
     DEV_ACTOR,
     _actor_from_claims,
