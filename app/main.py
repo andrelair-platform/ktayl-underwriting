@@ -47,7 +47,7 @@ logger.propagate = False
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: ARG001 -- FastAPI lifespan protocol requires the app param
     # Self-migrate on startup: wait for the DB, then `alembic upgrade head` (a separate migration
     # Job would deadlock the ArgoCD sync ordering — the platform standard is to self-migrate). Gated
     # off in L1 tests, which build the schema in-memory instead of via Alembic.
@@ -84,7 +84,7 @@ def create_app() -> FastAPI:
         # Resolve the actor best-effort — never let logging fail a request (e.g. no/invalid token).
         try:
             actor = current_actor(request)
-        except Exception:
+        except Exception:  # noqa: BLE001 -- best-effort actor lookup for the access log; falls back to '-'
             actor = "-"
         logger.info(
             "request method=%s path=%s status_code=%s duration_ms=%s actor=%s",

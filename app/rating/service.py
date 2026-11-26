@@ -128,5 +128,5 @@ def quote_submission(
     return quote
 
 
-def latest_quote(session: Session, submission_id: str, quotes: QuoteRepository) -> Quote | None:
+def latest_quote(session: Session, submission_id: str, quotes: QuoteRepository) -> Quote | None:  # noqa: ARG001 -- session kept for a uniform service-function signature
     return quotes.latest_for_submission(submission_id)

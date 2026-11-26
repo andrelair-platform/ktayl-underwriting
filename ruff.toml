@@ -12,11 +12,35 @@ select = [
   "UP",  # pyupgrade
   "B",   # flake8-bugbear
   "C4",  # flake8-comprehensions
+  # clean-code.md deterministic floor (Python row) — see minicloud-gitops#2353.
+  "C901", # mccabe cyclomatic complexity
+  "PLR",  # pylint-refactor (too-many-args/branches/statements/returns)
+  "N",    # pep8-naming
+  "SIM",  # flake8-simplify (flatten/simplify)
+  "RET",  # flake8-return (early-return)
+  "ARG",  # flake8-unused-arguments
+  "TRY",  # tryceratops (no blind/abused except)
+  "BLE",  # flake8-blind-except
+  "ERA",  # eradicate (no commented-out code)
 ]
 ignore = [
-  "B008", # function call in argument defaults — required by FastAPI Depends()
+  "B008",    # function call in argument defaults — required by FastAPI Depends()
+  # clean-code.md: opinionated members of the enabled families, deferred (minicloud-gitops#2353).
+  # The *measurable* floor (max-args/branches/complexity + real error-handling) stays enforced.
+  "PLR2004", # magic-value-in-comparison — noisy in rating/actuarial formulas (inline coefficients read clearer)
+  "TRY003",  # long message in raise — style, not a correctness floor
+  "TRY300",  # consider-else-after-return — style preference
 ]
 
+[lint.mccabe]
+max-complexity = 10
+
+[lint.pylint]
+max-args = 6
+max-branches = 12
+
 [lint.per-file-ignores]
-"tests/*" = ["B011"]
+# Tests are tooling, not app logic — exempt from the floor (testing.md): pytest/FastAPI
+# fixture params are legitimately "unused" (ARG), and a test harness may blind-except (BLE).
+"tests/*" = ["B011", "ARG001", "ARG002", "BLE001"]
 "migrations/*" = ["E501"]

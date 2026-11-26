@@ -5,6 +5,29 @@ import { ActionBar } from "@/components/ActionBar";
 import { OutcomeBadge } from "@/components/OutcomeBadge";
 import { ApiError, api, orNull } from "@/lib/api";
 import { formatEurCents } from "@/lib/money";
+import type { Outcome } from "@/lib/types";
+
+type Submission = Awaited<ReturnType<typeof api.getSubmission>>;
+
+/** Fetch the submission, mapping a 404 to Next's notFound() (re-throws anything else). */
+async function loadSubmission(id: string): Promise<Submission> {
+  try {
+    return await api.getSubmission(id);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) notFound();
+    throw e;
+  }
+}
+
+/** The action-bar gates + the header badge, derived from the decision / quote / bound state. */
+function computeActionFlags(decision: Submission["latest_decision"], hasQuote: boolean, bound: boolean) {
+  return {
+    canAssess: !bound,
+    canQuote: !bound && decision !== null && decision.outcome !== "decline",
+    canBind: !bound && decision?.outcome === "accept" && hasQuote,
+    headerOutcome: (bound ? "bound" : (decision?.outcome ?? "unassessed")) as Outcome | "bound" | "unassessed",
+  };
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -27,13 +50,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 export default async function SubmissionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  let submission;
-  try {
-    submission = await api.getSubmission(id);
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 404) notFound();
-    throw e;
-  }
+  const submission = await loadSubmission(id);
 
   const [quote, binding, audit] = await Promise.all([
     orNull(api.getQuote(id)),
@@ -43,9 +60,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
 
   const decision = submission.latest_decision;
   const bound = binding !== null;
-  const canAssess = !bound;
-  const canQuote = !bound && decision !== null && decision.outcome !== "decline";
-  const canBind = !bound && decision?.outcome === "accept" && quote !== null;
+  const { canAssess, canQuote, canBind, headerOutcome } = computeActionFlags(decision, quote !== null, bound);
 
   return (
     <div>
@@ -55,11 +70,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
         </Link>
         <span className="text-slate-300">/</span>
         <h1 className="font-mono text-sm text-slate-700">{submission.id}</h1>
-        {bound ? (
-          <OutcomeBadge outcome="bound" />
-        ) : (
-          <OutcomeBadge outcome={decision?.outcome ?? "unassessed"} />
-        )}
+        <OutcomeBadge outcome={headerOutcome} />
       </div>
 
       <div className="mb-6 rounded-lg border border-slate-200 bg-white p-5">
