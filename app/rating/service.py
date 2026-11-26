@@ -81,7 +81,9 @@ def quote_submission(
     if decision.outcome == Outcome.DECLINE.value:
         raise DeclinedRiskError(submission_id)
 
-    rate_table = rate_tables.current()
+    # Select the rate table for the submission's line of business (per-LOB extension): commercial property,
+    # marine or engineering — each priced by the same engine against its own base rate + class factors.
+    rate_table = rate_tables.current(submission.line_of_business)
     if rate_table is None:
         raise NoRateTableError()
 

@@ -16,6 +16,7 @@ from app.api.routes import ops, v1
 # Import the models so their tables are registered on Base.metadata (import side effect).
 from app.appetite import models as _appetite_models  # noqa: F401
 from app.appetite.repository import seed_v1
+from app.appetite.repository import seed_v2 as seed_appetite_v2
 from app.audit import models as _audit_models  # noqa: F401
 from app.bind import models as _bind_models  # noqa: F401
 from app.config import get_settings
@@ -24,6 +25,8 @@ from app.db.startup import bootstrap_database
 from app.decision import models as _decision_models  # noqa: F401
 from app.entity import models as _entity_models  # noqa: F401
 from app.rating import models as _rating_models  # noqa: F401
+from app.rating.repository import seed_engineering as seed_rate_table_engineering
+from app.rating.repository import seed_marine as seed_rate_table_marine
 from app.rating.repository import seed_v1 as seed_rate_table_v1
 from app.rating.repository import seed_v2 as seed_rate_table_v2
 from app.rating.repository import seed_v3 as seed_rate_table_v3
@@ -54,9 +57,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # v2 carries the ADR-009 P1 loading stack; current() returns it so new quotes price fully-loaded.
     with SessionLocal() as session:
         seed_v1(session)
+        seed_appetite_v2(session)  # opens Marine + Engineering appetite (multi-LOB pricing)
         seed_rate_table_v1(session)
         seed_rate_table_v2(session)
         seed_rate_table_v3(session)  # ADR-010 — experience rating + deductible/limit credits
+        seed_rate_table_marine(session)  # per-LOB rate table (Marine)
+        seed_rate_table_engineering(session)  # per-LOB rate table (Engineering)
     yield
 
 

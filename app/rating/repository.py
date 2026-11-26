@@ -13,9 +13,11 @@ from typing import Protocol
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
-from app.enums import Occupancy
+from app.enums import LineOfBusiness, Occupancy
 from app.rating.engine import RateTableSpec
 from app.rating.models import Quote, RateTable
+
+_CP = LineOfBusiness.COMMERCIAL_PROPERTY.value
 
 # The v1 seed rate table (ADR-004), commercial_property only.
 #   base_rate_permille : 0.5‰ of TIV (the technical base rate).
@@ -82,6 +84,50 @@ V3_RULES: dict = {
     ],
 }
 
+# --- Multi-LOB rate tables (per-LOB extension) -------------------------------------------------------
+# Marine & Engineering reuse the SAME engine (sum-insured ``tiv_eur`` × base‰ × class-factor × the full
+# loading stack); only the base rate, the class-factor map, the CAT provision and the LOB tag differ.
+# Each carries ``line_of_business`` in its rules so ``current(lob)`` selects it (existing commercial-property
+# rows have no tag → treated as commercial_property). Immutable + versioned (ADR-004): a NEW row per table.
+# v1 figures are simulation, credible-but-indicative (Pricing & Portfolio governance guideline).
+#
+# Marine cargo/hull: higher technical base rate than property (1.2‰); classes scale transit/commodity risk;
+# a larger CAT provision (nat-cat exposure to accumulations in transit/storage).
+MARINE_RULES: dict = {
+    **V3_RULES,
+    "line_of_business": LineOfBusiness.MARINE.value,
+    "base_rate_permille": "1.2",
+    "occupancy_factors": {
+        Occupancy.CARGO_GENERAL.value: "1.0",
+        Occupancy.CARGO_TEMPERATURE_CONTROLLED.value: "1.3",
+        Occupancy.CARGO_HAZARDOUS.value: "1.8",
+        Occupancy.PROJECT_CARGO.value: "1.5",
+        Occupancy.HULL.value: "0.8",
+    },
+    "cat_provision": "0.05",
+    "adjustments": [  # the sprinklered discount is property-specific; keep only the large-exposure load
+        {"name": "high_tiv_loading", "kind": "loading", "factor": "1.10", "applies_when": "high_tiv"},
+    ],
+}
+
+# Engineering CAR/EAR + machinery: base 1.0‰ on sum insured; erection riskier than contract works; standalone
+# machinery/electronic covers price below works; larger CAT provision (project nat-cat exposure).
+ENGINEERING_RULES: dict = {
+    **V3_RULES,
+    "line_of_business": LineOfBusiness.ENGINEERING.value,
+    "base_rate_permille": "1.0",
+    "occupancy_factors": {
+        Occupancy.CONTRACT_WORKS.value: "1.0",
+        Occupancy.ERECTION_WORKS.value: "1.2",
+        Occupancy.MACHINERY_BREAKDOWN.value: "0.7",
+        Occupancy.ELECTRONIC_EQUIPMENT.value: "0.6",
+    },
+    "cat_provision": "0.05",
+    "adjustments": [
+        {"name": "high_tiv_loading", "kind": "loading", "factor": "1.10", "applies_when": "high_tiv"},
+    ],
+}
+
 # TIV (eurocents) above which the high_tiv_loading applies — €5,000,000. The band is **strict `>`**:
 # a risk at EXACTLY €5,000,000 is NOT loaded (the loading applies only above it). This is an
 # intentional boundary, matching the appetite TIV authority-band convention (accepted at the
@@ -92,7 +138,7 @@ HIGH_TIV_THRESHOLD_EUR = 500_000_000
 class RateTableRepository(Protocol):
     """Read the current rate table + append new immutable versions."""
 
-    def current(self) -> RateTable | None: ...
+    def current(self, line_of_business: str = _CP) -> RateTable | None: ...
 
     def get_version(self, version: int) -> RateTable | None: ...
 
@@ -107,8 +153,14 @@ class SqlRateTableRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def current(self) -> RateTable | None:
-        return self._session.scalar(select(RateTable).order_by(desc(RateTable.version)).limit(1))
+    def current(self, line_of_business: str = _CP) -> RateTable | None:
+        """The latest rate table for a line of business. Rows carry ``line_of_business`` in their rules
+        (absent → commercial_property, for the pre-multi-LOB rows). Scans newest-version-first and returns
+        the first matching LOB — so each LOB is versioned independently within the shared version sequence."""
+        for rt in self._session.scalars(select(RateTable).order_by(desc(RateTable.version))):
+            if rt.rules.get("line_of_business", _CP) == line_of_business:
+                return rt
+        return None
 
     def get_version(self, version: int) -> RateTable | None:
         return self._session.scalar(select(RateTable).where(RateTable.version == version))
@@ -230,5 +282,28 @@ def seed_v3(session: Session) -> RateTable:
     if existing is not None:
         return existing
     rate_table = repo.create_version(version=3, rules=V3_RULES)
+    session.commit()
+    return rate_table
+
+
+def seed_marine(session: Session) -> RateTable:
+    """Install the Marine rate table (version 4) if the Marine LOB has none yet. Idempotent — keyed by LOB,
+    not just version, so a re-run is a no-op. Opens Marine pricing (reuses the engine; ADR-004 immutability)."""
+    repo = SqlRateTableRepository(session)
+    existing = repo.current(LineOfBusiness.MARINE.value)
+    if existing is not None:
+        return existing
+    rate_table = repo.create_version(version=4, rules=MARINE_RULES)
+    session.commit()
+    return rate_table
+
+
+def seed_engineering(session: Session) -> RateTable:
+    """Install the Engineering rate table (version 5) if the Engineering LOB has none yet. Idempotent."""
+    repo = SqlRateTableRepository(session)
+    existing = repo.current(LineOfBusiness.ENGINEERING.value)
+    if existing is not None:
+        return existing
+    rate_table = repo.create_version(version=5, rules=ENGINEERING_RULES)
     session.commit()
     return rate_table

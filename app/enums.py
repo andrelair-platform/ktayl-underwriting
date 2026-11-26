@@ -16,13 +16,30 @@ class LineOfBusiness(StrEnum):
 
 
 class Occupancy(StrEnum):
-    """Occupancy / activity of the insured risk (commercial property)."""
+    """The insured risk's classification — the rating factor dimension. Named ``occupancy`` for the v1
+    commercial-property LOB; from the multi-LOB extension it is the generic risk class and its meaning
+    depends on the submission's line of business (property occupancy · marine cargo/hull class ·
+    engineering works class). Each LOB's rate table carries the factor map for its own classes."""
 
+    # Commercial property — building occupancy.
     OFFICE = "office"
     RETAIL = "retail"
     WAREHOUSE = "warehouse"
     LIGHT_MANUFACTURING = "light_manufacturing"
     FIREWORKS_MANUFACTURING = "fireworks_manufacturing"
+
+    # Marine — cargo / hull class.
+    CARGO_GENERAL = "cargo_general"
+    CARGO_TEMPERATURE_CONTROLLED = "cargo_temperature_controlled"
+    CARGO_HAZARDOUS = "cargo_hazardous"
+    PROJECT_CARGO = "project_cargo"
+    HULL = "hull"
+
+    # Engineering — works / equipment class.
+    CONTRACT_WORKS = "contract_works"  # CAR — contractors' all risks
+    ERECTION_WORKS = "erection_works"  # EAR — erection all risks
+    MACHINERY_BREAKDOWN = "machinery_breakdown"
+    ELECTRONIC_EQUIPMENT = "electronic_equipment"
 
 
 class Outcome(StrEnum):
