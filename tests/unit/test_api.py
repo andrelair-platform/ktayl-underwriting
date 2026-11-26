@@ -44,7 +44,7 @@ def test_assess_accept(client: TestClient) -> None:
     body = resp.json()
     assert body["outcome"] == "accept"
     assert body["reason_codes"] == ["WITHIN_APPETITE"]
-    assert body["appetite_version"] == 1
+    assert body["appetite_version"] == 2  # v2 opened Marine + Engineering appetite
     assert body["submission_id"] == sub_id
 
 
@@ -170,8 +170,9 @@ def test_list_rate_tables(client: TestClient) -> None:
     resp = client.get("/v1/rate-tables")
     assert resp.status_code == 200
     body = resp.json()
-    # ADR-009 P1 added v2 (loading stack), ADR-010 added v3 (experience + deductible/limit) → newest first
-    assert [t["version"] for t in body] == [3, 2, 1]
+    # ADR-009 P1 added v2 (loading stack), ADR-010 added v3 (experience + deductible/limit); the multi-LOB
+    # extension added v4 (Marine) + v5 (Engineering). Newest first, all LOBs' rate tables listed.
+    assert [t["version"] for t in body] == [5, 4, 3, 2, 1]
     assert "base_rate_permille" in body[0]["rules"]
     assert "expense_loading" in body[0]["rules"]  # v2 carries the P1 loading params
 
@@ -271,7 +272,7 @@ def test_audit_log_is_append_only_trail(client: TestClient) -> None:
     assert actions == ["submission.created", "submission.assessed"]
     assessed = resp.json()[1]
     assert assessed["outcome"] == "accept"
-    assert assessed["ruleset_version"] == 1
+    assert assessed["ruleset_version"] == 2  # v2 opened Marine + Engineering appetite
 
 
 def test_audit_missing_submission_404(client: TestClient) -> None:
@@ -294,3 +295,34 @@ def test_info(client: TestClient) -> None:
     body = resp.json()
     assert body["service"] == "ktayl-underwriting"
     assert body["version"]
+
+
+# --- multi-LOB pricing: Marine/Engineering quote end-to-end + the lob/class-mismatch guard --------------
+
+
+def test_marine_submission_quotes_end_to_end(client: TestClient) -> None:
+    sub_id = _create(client, line_of_business="marine", occupancy="cargo_general")
+    assert client.post(f"/v1/submissions/{sub_id}/assess").json()["outcome"] == "accept"
+    resp = client.post(f"/v1/submissions/{sub_id}/quote")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["premium_minor"] > 0
+    assert body["rate_table_version"] == 4  # the Marine rate table
+
+
+def test_engineering_submission_quotes_end_to_end(client: TestClient) -> None:
+    sub_id = _create(client, line_of_business="engineering", occupancy="erection_works")
+    assert client.post(f"/v1/submissions/{sub_id}/assess").json()["outcome"] == "accept"
+    resp = client.post(f"/v1/submissions/{sub_id}/quote")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["rate_table_version"] == 5  # the Engineering rate table
+
+
+def test_a_class_not_in_the_lobs_rate_table_is_422_not_500(client: TestClient) -> None:
+    # A marine cargo class on a commercial-property submission: the appetite accepts it (it checks LOB +
+    # excluded occupancies, not LOB↔class consistency), but the property rate table has no such factor →
+    # a clean 422, NEVER a 500.
+    sub_id = _create(client, line_of_business="commercial_property", occupancy="cargo_general")
+    assert client.post(f"/v1/submissions/{sub_id}/assess").json()["outcome"] == "accept"
+    resp = client.post(f"/v1/submissions/{sub_id}/quote")
+    assert resp.status_code == 422, resp.text

@@ -25,6 +25,7 @@ from app.config import get_settings
 from app.decision.schemas import DecisionRead
 from app.enums import Outcome
 from app.rating import service as rating_service
+from app.rating.engine import RatingError
 from app.rating.schemas import QuoteRead, RateTableRead
 from app.submission import service
 from app.submission.schemas import (
@@ -138,6 +139,10 @@ def quote_submission(  # noqa: PLR0913 -- FastAPI dependency-injected handler si
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="a declined risk cannot be quoted") from None
     except rating_service.NoRateTableError:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="no rate table available") from None
+    except RatingError as exc:
+        # The risk classification isn't in this line of business's rate table (e.g. a marine class on a
+        # commercial-property submission). A data/eligibility problem, not a server fault → 422, never a 500.
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from None
     return QuoteRead.model_validate(quote)
 
 

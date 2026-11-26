@@ -23,6 +23,19 @@ V1_RULES: dict = {
     "sanctioned_countries": ["KP", "IR", "SY", "RU"],
 }
 
+# The v2 ruleset — opens Marine + Engineering appetite (the per-LOB pricing extension). Both now have rate
+# tables, so a submission for them flows appetite → rate → quote instead of being referred out-of-appetite.
+# Immutable + versioned (ADR-004): v2 is a NEW row; current() returns it. TIV authority band + the excluded
+# occupancy + sanctions carry over unchanged.
+V2_RULES: dict = {
+    **V1_RULES,
+    "allowed_lobs": [
+        LineOfBusiness.COMMERCIAL_PROPERTY.value,
+        LineOfBusiness.MARINE.value,
+        LineOfBusiness.ENGINEERING.value,
+    ],
+}
+
 
 class AppetiteRepository(Protocol):
     """Read the current ruleset + append new immutable versions."""
@@ -65,5 +78,17 @@ def seed_v1(session: Session) -> AppetiteRuleset:
     if existing is not None:
         return existing
     ruleset = repo.create_version(version=1, rules=V1_RULES)
+    session.commit()
+    return ruleset
+
+
+def seed_v2(session: Session) -> AppetiteRuleset:
+    """Install version 2 (opens Marine + Engineering appetite) if absent. Idempotent; requires v1. Once
+    present, current() returns v2, so those LOBs are in appetite. Never edits v1 (ADR-004 immutability)."""
+    repo = SqlAppetiteRepository(session)
+    existing = repo.get_version(2)
+    if existing is not None:
+        return existing
+    ruleset = repo.create_version(version=2, rules=V2_RULES)
     session.commit()
     return ruleset
