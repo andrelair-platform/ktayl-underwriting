@@ -106,7 +106,7 @@ def _create_request(submission: Submission, counterparty_name: str, policy_numbe
     )
 
 
-def bind_submission(
+def bind_submission(  # noqa: PLR0913 -- injected-collaborator signature (session + repos + clients, manual DI)
     session: Session,
     submission_id: str,
     bindings: BindingRepository,
@@ -200,12 +200,12 @@ def _publish_best_effort(publisher: BoundRiskPublisher, event: dict) -> bool:
     try:
         publisher.publish(event)
         return True
-    except Exception as exc:  # best-effort — never fail the bind on a publish error
+    except Exception as exc:  # noqa: BLE001 -- best-effort; never fail the bind on a publish error
         logger.warning("bound-risk publish failed for %s: %s", event.get("policy_number"), exc)
         return False
 
 
-def latest_binding(session: Session, submission_id: str, bindings: BindingRepository) -> Binding | None:
+def latest_binding(session: Session, submission_id: str, bindings: BindingRepository) -> Binding | None:  # noqa: ARG001 -- session kept for a uniform service-function signature
     return bindings.by_submission(submission_id)
 
 

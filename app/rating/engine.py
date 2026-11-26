@@ -213,14 +213,42 @@ def _experience_mod(facts: RatingFacts, rate_table: RateTableSpec) -> Decimal:
         return _ONE
     actual_lr = Decimal(facts.prior_losses_eur) / Decimal(facts.prior_premium_eur)
     z = (Decimal(facts.prior_premium_eur) / Decimal(rate_table.full_credibility_premium_minor)).sqrt()
-    if z > _ONE:
-        z = _ONE
+    z = min(z, _ONE)
     raw = z * (actual_lr / rate_table.expected_loss_ratio) + (_ONE - z)
     if raw < rate_table.experience_swing_min:
         return rate_table.experience_swing_min
     if raw > rate_table.experience_swing_max:
         return rate_table.experience_swing_max
     return raw
+
+
+def _apply_completeness_adjustments(
+    subtotal: Decimal, facts: RatingFacts, rate_table: RateTableSpec
+) -> tuple[Decimal, list[LineItem]]:
+    """ADR-010 deterministic actuarial completeness (loss-cost stage): deductible credit, ILF, and the
+    experience modifier, applied in that order. A neutral factor (==1) adds no line item. Returns the
+    adjusted subtotal + the line items to append (threading the subtotal identically to inline)."""
+    items: list[LineItem] = []
+    ded_factor = _deductible_factor(facts.deductible_eur, rate_table.deductible_credits)
+    if ded_factor != _ONE:  # the insured retains a layer → lower loss cost → a credit
+        subtotal = subtotal * ded_factor
+        items.append(
+            LineItem("deductible_credit", "discount", f"×{ded_factor}", _to_minor(subtotal), stage="loss_cost")
+        )
+
+    lim_factor = _limit_factor(facts.limit_eur, rate_table.limit_factors)
+    if lim_factor != _ONE:  # increased-limit factor (ILF) on a limited layer
+        kind = "discount" if lim_factor < _ONE else "loading"
+        subtotal = subtotal * lim_factor
+        items.append(LineItem("limit_factor", kind, f"×{lim_factor}", _to_minor(subtotal), stage="loss_cost"))
+
+    exp_mod = _experience_mod(facts, rate_table)
+    if exp_mod != _ONE:  # the account's own loss experience, credibility-blended with the book rate
+        kind = "discount" if exp_mod < _ONE else "loading"
+        subtotal = subtotal * exp_mod
+        items.append(LineItem("experience_modifier", kind, f"×{exp_mod}", _to_minor(subtotal), stage="loss_cost"))
+
+    return subtotal, items
 
 
 def rate(facts: RatingFacts, rate_table: RateTableSpec) -> QuoteBreakdown:
@@ -263,24 +291,8 @@ def rate(facts: RatingFacts, rate_table: RateTableSpec) -> QuoteBreakdown:
         items.append(LineItem(adj.name, adj.kind, f"×{adj.factor}", _to_minor(subtotal), stage="loss_cost"))
 
     # ── ADR-010 — deterministic actuarial completeness (loss-cost stage; neutral steps add no line item) ──
-    ded_factor = _deductible_factor(facts.deductible_eur, rate_table.deductible_credits)
-    if ded_factor != _ONE:  # the insured retains a layer → lower loss cost → a credit
-        subtotal = subtotal * ded_factor
-        items.append(
-            LineItem("deductible_credit", "discount", f"×{ded_factor}", _to_minor(subtotal), stage="loss_cost")
-        )
-
-    lim_factor = _limit_factor(facts.limit_eur, rate_table.limit_factors)
-    if lim_factor != _ONE:  # increased-limit factor (ILF) on a limited layer
-        kind = "discount" if lim_factor < _ONE else "loading"
-        subtotal = subtotal * lim_factor
-        items.append(LineItem("limit_factor", kind, f"×{lim_factor}", _to_minor(subtotal), stage="loss_cost"))
-
-    exp_mod = _experience_mod(facts, rate_table)
-    if exp_mod != _ONE:  # the account's own loss experience, credibility-blended with the book rate
-        kind = "discount" if exp_mod < _ONE else "loading"
-        subtotal = subtotal * exp_mod
-        items.append(LineItem("experience_modifier", kind, f"×{exp_mod}", _to_minor(subtotal), stage="loss_cost"))
+    subtotal, completeness_items = _apply_completeness_adjustments(subtotal, facts, rate_table)
+    items.extend(completeness_items)
 
     pure_premium_minor = _to_minor(subtotal)
 
