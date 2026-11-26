@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-import app.api.auth as auth
+from app.api import auth
 from app.api.deps import get_bound_risk_publisher, get_policy_service_client, get_token_provider
 from app.config import get_settings
 from app.db.base import get_db

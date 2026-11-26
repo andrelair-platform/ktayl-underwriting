@@ -17,7 +17,7 @@ from app.bind.models import Binding
 class BindingRepository(Protocol):
     """Persist a binding + read it back by submission or policy_number."""
 
-    def add(
+    def add(  # noqa: PLR0913 -- binding-row column signature (the args ARE the row fields)
         self,
         submission_id: str,
         quote_id: str,
@@ -39,7 +39,7 @@ class SqlBindingRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def add(
+    def add(  # noqa: PLR0913 -- binding-row column signature (the args ARE the row fields)
         self,
         submission_id: str,
         quote_id: str,

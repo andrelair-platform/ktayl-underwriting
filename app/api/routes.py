@@ -116,7 +116,7 @@ def get_submission(submission_id: str, db: DbSession) -> SubmissionDetail:
 
 
 @v1.post("/submissions/{submission_id}/quote", response_model=QuoteRead, dependencies=[_WRITE])
-def quote_submission(
+def quote_submission(  # noqa: PLR0913 -- FastAPI dependency-injected handler signature
     submission_id: str,
     db: DbSession,
     rate_tables: RateTableRepo,
@@ -155,7 +155,7 @@ def get_quote(submission_id: str, db: DbSession, quotes: QuoteRepo) -> QuoteRead
 
 
 @v1.post("/submissions/{submission_id}/bind", response_model=BindingRead, dependencies=[_WRITE])
-def bind_submission(
+def bind_submission(  # noqa: PLR0913 -- FastAPI dependency-injected handler signature
     submission_id: str,
     db: DbSession,
     bindings: BindingRepo,
