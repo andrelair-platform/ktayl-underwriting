@@ -21,6 +21,7 @@ def _reconciles(breakdown) -> None:
 
 # --- Marine ---------------------------------------------------------------------------------------
 
+
 def test_marine_prices_a_cargo_risk_and_reconciles() -> None:
     bd = rate(_facts("cargo_general"), MARINE_SPEC)
     assert bd.premium_minor > 0
@@ -49,6 +50,7 @@ def test_marine_base_rate_is_higher_than_commercial_property() -> None:
 
 # --- Engineering ----------------------------------------------------------------------------------
 
+
 def test_engineering_prices_works_and_reconciles() -> None:
     bd = rate(_facts("contract_works"), ENG_SPEC)
     assert bd.premium_minor > 0
@@ -64,6 +66,7 @@ def test_engineering_erection_is_dearer_than_contract_works() -> None:
 
 
 # --- the class must exist in the LOB's factor map -------------------------------------------------
+
 
 def test_a_property_occupancy_is_not_a_valid_marine_class() -> None:
     # 'office' is a property occupancy; it is not in the marine factor map → RatingError (not a silent 0).

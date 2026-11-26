@@ -60,8 +60,10 @@ def test_appetite_v2_opens_marine_and_engineering(db_session: Session) -> None:
     ruleset = spec_of(SqlAppetiteRepository(db_session).current())
     for lob in (_CP, _MARINE, _ENG):
         facts = SubmissionFacts(
-            line_of_business=lob, occupancy="cargo_general" if lob == _MARINE else "office",
-            tiv_eur=500_000_00, country="FR",
+            line_of_business=lob,
+            occupancy="cargo_general" if lob == _MARINE else "office",
+            tiv_eur=500_000_00,
+            country="FR",
         )
         outcome, _ = assess(facts, ruleset)
         assert outcome != Outcome.DECLINE, f"{lob} should be in appetite"
